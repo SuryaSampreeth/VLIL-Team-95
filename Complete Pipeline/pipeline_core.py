@@ -62,6 +62,11 @@ def is_loaded(key) -> bool:
 # Input + quality gate
 # ════════════════════════════════════════════════════════════════════════════
 def load_xray(path) -> np.ndarray:
+    """Load a chest X-ray from JPEG/PNG/DICOM; returns a uint8 grayscale array.
+
+    Supports 8-bit and 16-bit images; 16-bit images are min-max normalised to uint8.
+    DICOM files are decoded with pydicom (install separately).
+    """
     path = Path(path)
     if path.suffix.lower() == ".dcm":
         import pydicom
@@ -86,6 +91,12 @@ except ImportError:
 
 
 def assess_quality(gray256: np.ndarray) -> dict:
+    """Compute BRISQUE, Shannon entropy, and Laplacian sharpness for a grayscale image.
+
+    Returns dict with keys: brisque, entropy, sharpness, needs_enhancement, reason.
+    needs_enhancement is True when BRISQUE exceeds BRISQUE_THRESHOLD or entropy falls
+    below ENTROPY_THRESHOLD.
+    """
     hist = np.bincount(gray256.ravel(), minlength=256) / gray256.size
     hist = hist[hist > 0]
     entropy = float(-(hist * np.log2(hist)).sum())
