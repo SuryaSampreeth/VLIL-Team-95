@@ -59,11 +59,13 @@ class MedicalKnowledgeGraph:
     """Dynamic Medical Knowledge Graph with confidence scoring"""
 
     def __init__(self):
+        """Initialise an empty directed graph for storing medical entities and relations."""
         self.graph = nx.DiGraph()
         self.entities = {}
         self.relations = []
 
     def add_entity(self, entity: MedicalEntity):
+        """Add a MedicalEntity node to the knowledge graph."""
         self.entities[entity.name] = entity
         self.graph.add_node(
             entity.name,
@@ -74,6 +76,7 @@ class MedicalKnowledgeGraph:
         )
 
     def add_relation(self, relation: MedicalRelation):
+        """Add a directed edge between two entity nodes with relation metadata."""
         self.relations.append(relation)
         self.graph.add_edge(
             relation.source,
