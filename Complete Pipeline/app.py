@@ -45,14 +45,17 @@ def img_uri(arr: np.ndarray, quality: int = 90) -> str:
 
 
 def chip(text: str, kind: str = "neutral") -> str:
+    """Render a styled HTML chip/badge with an optional semantic kind class."""
     return f'<span class="rx-chip {kind}">{esc(text)}</span>'
 
 
 def empty(msg: str) -> str:
+    """Return a placeholder div shown when a panel has no content yet."""
     return f'<div class="rx-empty">{esc(msg)}</div>'
 
 
 def enh_info(name: str) -> str:
+    """Return a short description for the selected enhancement model."""
     if name == pc.NO_ENHANCEMENT:
         return "Only resizes to 256×256. Detection and the report see the raw X-ray."
     spec = pc.ENHANCERS[name]
@@ -60,6 +63,7 @@ def enh_info(name: str) -> str:
 
 
 def det_info(name: str) -> str:
+    """Return a short description for the selected disease-detection model."""
     s = pc.DETECTORS[name]
     rows = " · ".join(f"{d} {a:.3f}" for d, a in zip(pc.DISEASES, s["auc"]))
     return f"{s['info']}  \nTest AUC: {rows}  \n`{s['file']}`"
@@ -76,6 +80,7 @@ def report_status() -> str:
 # HTML panels
 # ──────────────────────────────────────────────────────────────────────────────
 def header_html() -> str:
+    """Generate the branded ReXTrust header HTML block."""
     steps = ["Quality gate", "Enhancement", "Detection ×4", "Score-CAM", "MediVLM report", "RadCheck"]
     flow = '<span class="rx-arrow">→</span>'.join(f'<span class="rx-step">{s}</span>' for s in steps)
     return (f'<div class="rx-hero"><div class="rx-hero-top"><div><div class="rx-hero-title">ReXTrust</div>'
@@ -211,6 +216,7 @@ def heatmaps_html(enhanced, cams_by_model: dict, all_det: dict, selected: str, r
 
 
 def _sentences(text: str) -> list:
+    """Split report text into sentences for per-sentence highlighting."""
     return [s.strip() for s in re.split(r"(?<=\.)\s+", text) if s.strip()]
 
 
