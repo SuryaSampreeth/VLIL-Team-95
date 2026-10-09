@@ -1,0 +1,369 @@
+{
+ "note": "Real MediVLM + RadCheck outputs saved by app.py on the sample images; replayed in mock mode.",
+ "reports": [
+  {
+   "source": "results/1/result.json",
+   "report": "FINDINGS: There is no evidence of pneumonia, pleural effusion, or pneumothorax. The heart size is normal. The mediastinal and hilar contours are within normal limits. The pulmonary vasculature is unremarkable. The lungs are clear without focal consolidation.\nIMPRESSION: No acute cardiopulmonary process.",
+   "radcheck": {
+    "overall_confidence": 1.0,
+    "hallucination_detected": false,
+    "fully_verified": true,
+    "contradictions": [],
+    "graph_stats": {
+     "num_entities": 15,
+     "num_relations": 9
+    },
+    "detailed_findings": [
+     {
+      "finding": "pneumonia",
+      "target": "lungs",
+      "status": "absent",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Pneumonia is a common finding in radiology.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "pleural effusion",
+      "target": "pleural space",
+      "status": "absent",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Pleural effusion is a common finding in radiology.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "pneumothorax",
+      "target": "pleural space",
+      "status": "absent",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Pneumothorax is a common finding in radiology.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "heart size",
+      "target": "heart",
+      "status": "normal",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Normal heart size is a standard observation.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "mediastinal contours",
+      "target": "mediastinum",
+      "status": "within normal limits",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Normal mediastinal contours are a standard observation.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "hilar contours",
+      "target": "hila",
+      "status": "within normal limits",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Normal hilar contours are a standard observation.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "pulmonary vasculature",
+      "target": "pulmonary vasculature",
+      "status": "unremarkable",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Unremarkable pulmonary vasculature is a standard observation.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "lungs",
+      "target": "lungs",
+      "status": "clear",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Clear lungs are a standard observation.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "focal consolidation",
+      "target": "lungs",
+      "status": "absent",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "Absence of focal consolidation is a standard observation.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     }
+    ]
+   }
+  },
+  {
+   "source": "results/2/result.json",
+   "report": "FINDINGS: There is no evidence of pneumonia, pleural effusion, or pneumothorax. The heart size is normal. The mediastinal and hilar contours are within normal limits. The pulmonary vasculature is unremarkable.\nIMPRESSION: No acute cardiopulmonary process.",
+   "radcheck": {
+    "overall_confidence": 1.0,
+    "hallucination_detected": false,
+    "fully_verified": false,
+    "contradictions": [],
+    "graph_stats": {
+     "num_entities": 13,
+     "num_relations": 7
+    },
+    "detailed_findings": [
+     {
+      "finding": "no evidence of pneumonia",
+      "target": "Lungs",
+      "status": "clear",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "This is a standard and commonly reported finding indicating clear lungs, consistent with a normal examination.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "no evidence of pleural effusion",
+      "target": "Pleural space",
+      "status": "clear",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "This is a standard and commonly reported finding indicating no fluid in the pleural space, consistent with a normal examination.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "no evidence of pneumothorax",
+      "target": "Pleural space",
+      "status": "clear",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "This is a standard and commonly reported finding indicating no air in the pleural space, consistent with a normal examination.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "heart size is normal",
+      "target": "Heart",
+      "status": "normal",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "This is a standard and commonly reported finding indicating normal cardiac size, consistent with a normal examination.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "mediastinal contours are within normal limits",
+      "target": "Mediastinum",
+      "status": "normal",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "This is a standard and commonly reported finding indicating normal mediastinal anatomy, consistent with a normal examination.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "hilar contours are within normal limits",
+      "target": "Hila",
+      "status": "normal",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "This is a standard and commonly reported finding indicating normal hilar anatomy, consistent with a normal examination.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "pulmonary vasculature is unremarkable",
+      "target": "Pulmonary vasculature",
+      "status": "normal",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "This is a standard and commonly reported finding indicating normal pulmonary blood vessels, consistent with a normal examination.",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     }
+    ]
+   }
+  },
+  {
+   "source": "results/3/result.json",
+   "report": "FINDINGS: There is no evidence of acute cardiopulmonary disease. The lungs are clear without focal consolidation, pleural effusion or pneumothorax. The cardiac and mediastinal silhouettes are unremarkable.\nIMPRESSION: No acute osseous abnormality.",
+   "radcheck": {
+    "overall_confidence": 1.0,
+    "hallucination_detected": false,
+    "fully_verified": false,
+    "contradictions": [],
+    "graph_stats": {
+     "num_entities": 5,
+     "num_relations": 4
+    },
+    "detailed_findings": [
+     {
+      "finding": "There is no evidence of acute cardiopulmonary disease",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "The lungs are clear without focal consolidation, pleural effusion or pneumothorax",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "The cardiac and mediastinal silhouettes are unremarkable",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "No acute osseous abnormality",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     }
+    ]
+   }
+  },
+  {
+   "source": "results/9_IM-2407-1001.dcm/result.json",
+   "report": "FINDINGS: The heart size is normal. There is no pleural effusion or pneumothorax. The cardiomediastinal silhouette is within normal limits. The lungs are clear.\nIMPRESSION: No acute cardiopulmonary process.",
+   "radcheck": {
+    "overall_confidence": 1.0,
+    "hallucination_detected": false,
+    "fully_verified": false,
+    "contradictions": [],
+    "graph_stats": {
+     "num_entities": 6,
+     "num_relations": 5
+    },
+    "detailed_findings": [
+     {
+      "finding": "The heart size is normal",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "There is no pleural effusion or pneumothorax",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "The cardiomediastinal silhouette is within normal limits",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "The lungs are clear",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     },
+     {
+      "finding": "No acute cardiopulmonary process",
+      "target": "General",
+      "status": "Unspecified",
+      "baseline_classification": "typical",
+      "baseline_reasoning": "(no classification returned by the LLM)",
+      "pubmed_grounded": false,
+      "is_contradicted": false,
+      "contradiction_detail": "",
+      "grounding_score": 1.0,
+      "hallucination_risk": false
+     }
+    ]
+   }
+  }
+ ]
+}
