@@ -1,1 +1,11 @@
-DiseaseDetection/Models/*.zip filter=lfs diff=lfs merge=lfs -text
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Binary files - do not diff as text
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.woff binary
+*.woff2 binary
+*.pyc binary
