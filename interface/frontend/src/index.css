@@ -1,0 +1,212 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Colour tokens (RGB triplets so Tailwind can apply alpha). Dark is the default theme. */
+:root,
+:root[data-theme='dark'] {
+  --bg: 6 10 19;
+  --elev: 12 19 34;
+  --card: 255 255 255;
+  --card-a: 0.035;
+  --line: 148 163 184;
+  --line-a: 0.14;
+  --ink: 230 237 247;
+  --muted: 140 155 181;
+  --primary: 45 212 191;
+  --accent: 129 140 248;
+  --ok: 52 211 153;
+  --warn: 251 191 36;
+  --bad: 251 113 133;
+  --d-cardio: 244 114 182;
+  --d-edema: 96 165 250;
+  --d-effusion: 251 191 36;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: 244 247 251;
+  --elev: 255 255 255;
+  --card: 255 255 255;
+  --card-a: 0.72;
+  --line: 100 116 139;
+  --line-a: 0.2;
+  --ink: 11 19 36;
+  --muted: 75 88 112;
+  --primary: 13 148 136;
+  --accent: 79 70 229;
+  --ok: 5 150 105;
+  --warn: 180 113 6;
+  --bad: 225 29 72;
+  --d-cardio: 219 39 119;
+  --d-edema: 37 99 235;
+  --d-effusion: 202 138 4;
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    overflow-x: clip;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    overflow-x: clip;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--primary));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: rgb(var(--primary) / 0.3);
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgb(var(--card) / var(--card-a));
+    border: 1px solid rgb(var(--line) / var(--line-a));
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    @apply rounded-2xl shadow-soft;
+  }
+  .hairline {
+    border-color: rgb(var(--line) / var(--line-a));
+  }
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(100deg, rgb(var(--primary)), rgb(var(--accent)) 60%, rgb(var(--d-cardio)));
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+      disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn text-white shadow-glow;
+    background-image: linear-gradient(135deg, rgb(var(--primary)), rgb(var(--accent)));
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .btn-ghost {
+    @apply btn text-ink hover:bg-ink/5;
+    border: 1px solid rgb(var(--line) / var(--line-a));
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+  .label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+  .grid-bg {
+    background-image: linear-gradient(rgb(var(--line) / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--line) / 0.07) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .checker {
+    background-color: #000;
+  }
+
+  /* route change: fade + lift in, no exit phase (cannot leave the page blank) */
+  .page-enter {
+    /* fill "backwards" only: a lingering transform would turn <main> into the containing block of position:fixed children */
+    animation: page-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* soft light that follows the cursor across a card (vars set by <Card spotlight>) */
+  .spotlight {
+    position: relative;
+    isolation: isolate;
+  }
+  .spotlight::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--primary) / 0.14), transparent 45%);
+  }
+  .spotlight:hover::before {
+    opacity: 1;
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* range inputs */
+input[type='range'] {
+  accent-color: rgb(var(--primary));
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--line) / 0.3);
+  border-radius: 999px;
+  border: 2px solid rgb(var(--bg));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  nav, footer, .no-print {
+    display: none !important;
+  }
+}
+
+/* ── splash intro ── */
+@keyframes splashscan {
+  from { top: 4%; }
+  to { top: 96%; }
+}
+@keyframes shock {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(9); opacity: 0; }
+}
+@keyframes aurora {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(60px, -40px) scale(1.15); }
+}
+@keyframes gridmove {
+  from { background-position: 0 0; }
+  to { background-position: 0 56px; }
+}
+
+/* heatmap swap: fade from 0 up to the element's own (slider) opacity */
+.heat-in {
+  animation: heat-in 0.35s ease-out;
+}
+@keyframes heat-in {
+  from { opacity: 0; }
+}
