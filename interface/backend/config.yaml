@@ -1,0 +1,146 @@
+# ReXTrust interface — model registry and runtime settings.
+#
+#   mode: auto  -> use the real models when their weights load, otherwise fall back to mock outputs per stage
+#   mode: real  -> real models only; errors are returned instead of mock outputs
+#   mode: mock  -> never touch torch / weights; instant placeholder outputs (UI demo without a GPU or weights)
+#
+# Override without editing this file:  REXTRUST_MODE=mock uvicorn app.main:app
+mode: auto
+
+# Folder that contains pipeline_core.py, radcheck.py and Models/ (relative to this file).
+pipeline_root: ../..
+
+upload:
+  max_mb: 10
+  extensions: [.png, .jpg, .jpeg, .bmp, .tif, .tiff, .dcm]
+
+diseases: [Cardiomegaly, Edema, Pleural Effusion]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1 — Image enhancement.   adapter: clahe | network | unavailable
+#   network.arch: attn_unet | unet_v3 | zero_dce  (classes in pipeline_core.py)
+#   benchmark: TEAM_95_PR2.pdf slide 9, mean over 23 low-quality CheXpert images
+# ─────────────────────────────────────────────────────────────────────────────
+stage1:
+  default: attn_unet_clahe
+  quality_gate: { brisque_max: 5.0, entropy_min: 7.95 }
+  models:
+    - id: attn_unet_clahe
+      name: Attention U-Net + CLAHE
+      family: Proposed hybrid
+      proposed: true
+      adapter: network
+      arch: attn_unet
+      weights: Models/Enhancement/unet_attention_v4 .pt
+      clahe: true
+      description: 4-stage ResBlock encoder/decoder with CBAM at the bottleneck and attention gates on every skip connection, followed by CLAHE. Final proposed pipeline.
+      benchmark: { brisque: 13.35, entropy: 7.92, sharpness: 2082.3, cii: 1.90, avg_rank: 2.2 }
+    - id: unet_v3_clahe
+      name: U-Net V3 + CLAHE
+      family: Proposed hybrid
+      adapter: network
+      arch: unet_v3
+      weights: Models/Enhancement/unet_xray_v3.pt
+      clahe: true
+      description: U-Net denoises, CLAHE then boosts contrast on the clean output.
+      benchmark: { brisque: 17.51, entropy: 7.91, sharpness: 1859.7, cii: 1.76, avg_rank: 3.2 }
+    - id: clahe
+      name: CLAHE
+      family: Classical baseline
+      adapter: clahe
+      description: Clip-limited adaptive histogram equalization (clip 2.0, 8x8 tiles). No learned weights.
+      benchmark: { brisque: 7.01, entropy: 7.84, sharpness: 3609.6, cii: 1.71, avg_rank: 3.8 }
+    - id: attn_unet
+      name: Attention U-Net + CBAM
+      family: Learned baseline
+      adapter: network
+      arch: attn_unet
+      weights: Models/Enhancement/unet_attention_v4 .pt
+      clahe: false
+      description: The Attention U-Net (ResBlocks + CBAM + attention gates) on its own, without the CLAHE stage.
+      benchmark: { brisque: 13.22, entropy: 7.86, sharpness: 1295.7, cii: 1.37, avg_rank: 4.6 }
+    - id: zero_dce
+      name: Zero-DCE
+      family: Learned baseline
+      adapter: network
+      arch: zero_dce
+      weights: Models/Enhancement/zerodce_xray.pt
+      clahe: false
+      description: Unsupervised DCE-Net; pixel-wise curve estimation with spatial-consistency, exposure, colour-constancy and illumination-smoothness losses (Guo et al., 2020).
+      benchmark: { brisque: 19.59, entropy: 6.54, sharpness: 1766.4, cii: 1.27, avg_rank: 5.4 }
+    - id: unet_v3
+      name: U-Net V3
+      family: Learned baseline
+      adapter: network
+      arch: unet_v3
+      weights: Models/Enhancement/unet_xray_v3.pt
+      clahe: false
+      description: Supervised U-Net trained on CLAHE-target pairs with L1 + SSIM + Laplacian loss for 60 epochs (Ronneberger et al., 2015).
+      benchmark: { brisque: 17.96, entropy: 7.86, sharpness: 1190.9, cii: 1.29, avg_rank: 5.6 }
+    - id: unimie
+      name: UniMIE
+      family: Diffusion baseline
+      adapter: unavailable
+      weights: TODO_UNIMIE_WEIGHTS   # pretrained guided-diffusion prior; not shipped with this project
+      description: Training-free universal medical image enhancement with a pretrained diffusion prior (Fei et al., 2025). Weights not bundled, so it only runs in mock mode.
+      benchmark: { brisque: -0.73, entropy: 7.85, sharpness: 725.5, cii: 0.93, avg_rank: 6.0 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — Disease detection + per-disease Score-CAM.
+#   arch: cnn | cnn_dropout | hybrid | chexgcn  (classes in pipeline_core.py)
+#   thresholds: F1-optimal on the validation split; auc/f1: held-out test set, 6k images per disease
+# ─────────────────────────────────────────────────────────────────────────────
+stage2:
+  default: cnn_baseline
+  scorecam_channels: 256      # top-variance denseblock4 channels used as masks (1024 = all; slower on CPU)
+  models:
+    - id: cnn_baseline
+      name: CNN — Baseline Recipe
+      family: DenseNet121
+      arch: cnn
+      weights: Models/Disease Detection/best_cnn.pth
+      description: DenseNet121 → GAP → Linear(3). Plain BCE loss, no dropout, no scheduler — the literal CheXNet recipe.
+      thresholds: [0.245157, 0.404027, 0.506576]
+      auc: [0.832, 0.803, 0.841]
+      f1: [0.668, 0.719, 0.776]
+    - id: cnn_matched
+      name: CNN — Matched Recipe
+      family: DenseNet121
+      arch: cnn_dropout
+      weights: Models/Disease Detection/best_cnn_matched.pth
+      description: Same architecture as the baseline with Focal loss + dropout 0.3 + LR scheduler; isolates the recipe effect.
+      thresholds: [0.377337, 0.362627, 0.339481]
+      auc: [0.826, 0.801, 0.839]
+      f1: [0.654, 0.720, 0.782]
+    - id: hybrid
+      name: Hybrid CNN-Transformer
+      family: CNN + Transformer
+      arch: hybrid
+      weights: Models/Disease Detection/best_hybrid.pth
+      description: DenseNet121 features → patch tokens + [CLS] → 2-layer Transformer encoder → classify off [CLS].
+      thresholds: [0.349390, 0.331475, 0.323119]
+      auc: [0.835, 0.790, 0.845]
+      f1: [0.674, 0.706, 0.785]
+    - id: chexgcn
+      name: CheXGCN
+      family: Graph neural network
+      arch: chexgcn
+      weights: Models/Disease Detection/best_chexgcn.pth
+      description: Image features + a GCN over the disease co-occurrence graph (train split only); dot-product classifier.
+      thresholds: [0.382156, 0.377137, 0.378709]
+      auc: [0.829, 0.804, 0.842]
+      f1: [0.667, 0.721, 0.773]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 3 — Report generation (MediVLM) + verification (RadCheck RAG).
+# ─────────────────────────────────────────────────────────────────────────────
+stage3:
+  report_model:
+    id: medivlm
+    name: MediVLM (GPT-2 decoder)
+    weights: Models/Report/mimic_sample.ckpt
+    num_beams: 4
+  verifier:
+    id: radcheck
+    name: RadCheck RAG
+    env_key: GOOGLE_API_KEY     # read from the environment or <pipeline_root>/.env
