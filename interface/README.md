@@ -181,3 +181,25 @@ Everything else on the site (objectives, problem statement, models, metrics, res
 - **A stage shows the MOCK OUTPUT badge in auto mode.** The yellow notice and the backend log explain which weights or packages are missing.
 - **"RadCheck could not run".** Set `GOOGLE_API_KEY` in `../.env`, then check your network connection and quota.
 - **The first Stage 3 call is slow.** MediVLM (~3 GB) loads on the first use and is cached after that.
+
+---
+
+## Development Setup
+
+### Prerequisites
+- Python 3.10+ with pip
+- Node.js 18+ with npm
+- CUDA-capable GPU (optional, for real inference)
+
+### Quick Start
+1. Clone: `git clone https://github.com/SuryaSampreeth/VLIL-Team-95.git`
+2. Backend: `cd interface/backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
+3. Frontend: `cd interface/frontend && npm install && npm run dev`
+4. Open http://localhost:5173
+
+### Environment Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| VITE_API_URL | Backend API URL | http://localhost:8000 |
+| VLIL_MODE | mock or real | mock |
+| VLIL_MODEL_DIR | Model weights path | ./models |
