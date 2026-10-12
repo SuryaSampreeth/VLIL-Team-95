@@ -1,0 +1,24 @@
+# ── API + mock mode (enough to run the whole UI end to end) ──
+fastapi>=0.110,<=0.141.1  # 0.161 reads an omitted `heatmaps: bool = Form(True)` as False -> no Score-CAM
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+pyyaml>=6.0
+numpy>=1.24,<2          # torch/opencv builds in this project are compiled against NumPy 1.x
+opencv-python>=4.8,<4.10
+pillow>=10.0
+
+# ── Real models (Stage 1 + 2) — used in auto/real mode ──
+torch>=2.1
+torchvision>=0.16
+piq>=0.8                 # BRISQUE for the quality gate
+python-decouple>=3.8     # pipeline_core.py reads API keys from ../../.env
+pydicom>=2.4             # optional: .dcm uploads
+
+# ── Stage 3: MediVLM report + RadCheck RAG ──
+transformers>=4.40
+networkx>=3.0
+requests>=2.31
+langchain-core>=0.3
+langchain-classic>=0.1
+langchain-google-genai>=2.0
+# MediVLM itself is cloned into ../../Models/Report/MediVLM by pipeline_core.py (see that repo's requirements.txt)
