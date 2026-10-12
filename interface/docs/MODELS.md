@@ -64,3 +64,25 @@ stage2:
 Restart the backend and the new model appears in every selector. To add a **new architecture**:
 1. Add its class to `pipeline_core.py`.
 2. Add one line to the `archs` dict in `backend/app/engine_real.py`.
+
+---
+
+## Development Setup
+
+### Prerequisites
+- Python 3.10+ with pip
+- Node.js 18+ with npm
+- CUDA-capable GPU (optional, for real inference)
+
+### Quick Start
+1. Clone: `git clone https://github.com/SuryaSampreeth/VLIL-Team-95.git`
+2. Backend: `cd interface/backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
+3. Frontend: `cd interface/frontend && npm install && npm run dev`
+4. Open http://localhost:5173
+
+### Environment Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| VITE_API_URL | Backend API URL | http://localhost:8000 |
+| VLIL_MODE | mock or real | mock |
+| VLIL_MODEL_DIR | Model weights path | ./models |
