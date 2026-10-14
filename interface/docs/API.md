@@ -98,3 +98,25 @@ Stage 2 runs on the Stage 1 output, and Stage 3 receives the Stage 2 findings.
 | 415 | Unsupported extension |
 | 422 | File is not a decodable image, image is smaller than 64×64, or a parameter is invalid |
 | 503 | `mode: real` and the model failed (in `auto` mode the stage falls back to mock instead) |
+
+---
+
+## Development Setup
+
+### Prerequisites
+- Python 3.10+ with pip
+- Node.js 18+ with npm
+- CUDA-capable GPU (optional, for real inference)
+
+### Quick Start
+1. Clone: `git clone https://github.com/SuryaSampreeth/VLIL-Team-95.git`
+2. Backend: `cd interface/backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
+3. Frontend: `cd interface/frontend && npm install && npm run dev`
+4. Open http://localhost:5173
+
+### Environment Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| VITE_API_URL | Backend API URL | http://localhost:8000 |
+| VLIL_MODE | mock or real | mock |
+| VLIL_MODEL_DIR | Model weights path | ./models |
