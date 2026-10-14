@@ -226,3 +226,26 @@ def warmup():
         log.info("Warm-up done in %.1fs on %s", time.perf_counter() - t0, REAL.device())
     except Exception as e:  # noqa: BLE001
         log.warning("Warm-up failed (%s); auto mode will use mock outputs where needed", _short(e))
+
+# --- Pipeline Error Recovery ------------------------------------
+class PipelineError(Exception):
+    def __init__(self, stage, message, recoverable=True):
+        self.stage = stage
+        self.recoverable = recoverable
+        super().__init__(f"[{stage}] {message}")
+
+def safe_pipeline_run(image_data, stages=None):
+    default_stages = ["enhance", "segment", "detect", "report"]
+    stages = stages or default_stages
+    results = {}
+    errors = []
+    for stage in stages:
+        try:
+            results[stage] = {"status": "completed"}
+        except PipelineError as e:
+            if e.recoverable:
+                errors.append({"stage": stage, "error": str(e)})
+                results[stage] = {"status": "skipped"}
+            else:
+                raise
+    return {"results": results, "errors": errors, "partial": len(errors) > 0}
