@@ -163,3 +163,20 @@ DISEASE_LABELS = [
 ]
 SEVERITY_LEVELS = {0: "Normal", 1: "Mild", 2: "Moderate", 3: "Severe"}
 CONFIDENCE_THRESHOLD = 0.65
+
+# ─── Logging Setup ──────────────────────────────────────────────
+import logging
+import sys
+
+def get_logger(module_name):
+    logger = logging.getLogger(module_name)
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        fmt = logging.Formatter(
+            "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        handler.setFormatter(fmt)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    return logger
