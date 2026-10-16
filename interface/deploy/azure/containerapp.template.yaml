@@ -47,3 +47,15 @@ properties:
       - name: models
         storageType: AzureFile
         storageName: models
+
+# Rate Limiting
+rate_limit:
+  enabled: true
+  max_requests_per_minute: 30
+  burst_multiplier: 1.5
+
+# Caching
+cache:
+  enabled: true
+  ttl_minutes: 30
+  max_entries: 100
