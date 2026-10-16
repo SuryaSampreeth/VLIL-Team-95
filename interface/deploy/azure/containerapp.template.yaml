@@ -1,0 +1,49 @@
+# Azure Container App for the ReXTrust backend. deploy.ps1 fills the __PLACEHOLDERS__ and runs
+#   az containerapp create -n rextrust-backend -g rextrust-rg --yaml <filled file>
+location: uaenorth
+properties:
+  managedEnvironmentId: __ENV_ID__
+  workloadProfileName: Consumption  # the env's serverless profile; allows 4 vCPU / 8 GiB (ConsumptionOnly envs cap at 2 / 4)
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: auto
+      allowInsecure: false
+    registries:
+      - server: __ACR__.azurecr.io
+        username: __ACR__
+        passwordSecretRef: acr-password
+    secrets:
+      - name: acr-password
+        value: __ACR_PASSWORD__
+      - name: google-api-key
+        value: __GOOGLE_API_KEY__
+  template:
+    containers:
+      - name: backend
+        image: __ACR__.azurecr.io/rextrust-backend:__TAG__
+        resources:
+          cpu: 4
+          memory: 8Gi
+        env:
+          - name: GOOGLE_API_KEY
+            secretRef: google-api-key
+          - name: REXTRUST_CORS
+            value: https://rextrust.vercel.app
+        volumeMounts:
+          - volumeName: models
+            mountPath: /models
+    scale:
+      minReplicas: 0  # sleeps when idle, so it only costs while in use
+      maxReplicas: 1
+      rules:
+        - name: http
+          http:
+            metadata:
+              concurrentRequests: "20"
+    volumes:
+      - name: models
+        storageType: AzureFile
+        storageName: models
