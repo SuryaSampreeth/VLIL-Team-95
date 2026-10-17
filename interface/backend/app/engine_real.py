@@ -180,3 +180,26 @@ def get_logger(module_name):
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
     return logger
+
+# --- Prediction Post-Processing ---------------------------------
+def postprocess_predictions(raw_output, threshold=0.5):
+    import math
+    labels = ["Atelectasis","Cardiomegaly","Consolidation","Edema","Pleural Effusion"]
+    predictions = {}
+    for i, label in enumerate(labels):
+        score = 1.0 / (1.0 + math.exp(-raw_output[i]))
+        predictions[label] = {
+            "probability": round(score, 4),
+            "detected": score >= threshold,
+            "severity": "Mild" if score < 0.7 else ("Moderate" if score < 0.85 else "Severe")
+        }
+    return predictions
+
+def validate_model_checkpoint(path):
+    import os
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Model checkpoint not found: {path}")
+    size_mb = os.path.getsize(path) / (1024 * 1024)
+    if size_mb < 1:
+        raise ValueError(f"Checkpoint too small: {size_mb:.1f}MB")
+    return True
