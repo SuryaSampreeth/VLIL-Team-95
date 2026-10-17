@@ -189,3 +189,23 @@ export default function Enhance() {
     </>
   )
 }
+
+// ─── Animation Variants ────────────────────────────────────────
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
+  transition: { duration: 0.4, ease: 'easeOut' }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: { staggerChildren: 0.08, delayChildren: 0.15 }
+  }
+};
+
+const scaleOnHover = {
+  whileHover: { scale: 1.03 },
+  whileTap: { scale: 0.98 },
+  transition: { type: 'spring', stiffness: 400 }
+};
