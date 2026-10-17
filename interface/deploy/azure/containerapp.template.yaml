@@ -59,3 +59,5 @@ cache:
   enabled: true
   ttl_minutes: 30
   max_entries: 100
+
+# Updated: 2026-10-17
