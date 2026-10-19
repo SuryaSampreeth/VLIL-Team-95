@@ -203,3 +203,8 @@ Everything else on the site (objectives, problem statement, models, metrics, res
 | VITE_API_URL | Backend API URL | http://localhost:8000 |
 | VLIL_MODE | mock or real | mock |
 | VLIL_MODEL_DIR | Model weights path | ./models |
+
+<!-- Updated: 2026-10-19 -->
+<!-- Revised docs -->
+<!-- Added examples -->
+<!-- Updated API -->
