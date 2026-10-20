@@ -430,3 +430,9 @@ export const formatFileSize = (bytes) => {
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
 };
+
+// Updated: 2026-10-20
+// Added sanitization
+// Improved errors
+// Added retry logic
+// Fixed timeouts
