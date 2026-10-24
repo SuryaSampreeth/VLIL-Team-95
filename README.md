@@ -129,52 +129,215 @@ Conv Feature Maps → Upsample & Normalize → Mask Input & Forward Pass
 
 **Objective:** Generate a radiology report from a chest X-ray using region-aware visual understanding combined with medical language representation.
 
-### Visual Understanding
+**Where it fits:** MediVLM is the report-generation stage of ReXTrust. It takes the enhanced X-ray and writes a report; RadCheck RAG (Module 5) then verifies that report. MediVLM runs on the image alone: the disease-detection results are not passed to it, and the report is compared with the detector's output afterwards.
+
+**Source code:** the MediVLM model code is not in this repository. The notebooks clone the public implementation from [sonai-commits/MediVLM](https://github.com/sonai-commits/MediVLM), and the end-to-end pipeline (`Complete Pipeline/pipeline_core.py`) pins it to commit `f5a6e1d`. Everything below is taken from that code, the notebooks in `MediVLM/`, and their saved outputs.
+
+### Architecture
 
 ```
-Chest X-ray → Faster R-CNN (ResNet-34) → Top-p Anatomical Region Patches
-           → CLIP ViT-L/14 (Visual Features) + Normalized Box (x,y,w,h) → MLP Position Encoding
-           → Visual tokens (appearance + spatial information)
+Chest X-ray (224×224, values in [0, 1])
+  → Faster R-CNN (ResNet-34 + FPN) → 8 highest-scoring boxes → 8 crops of 28×28
+  → each crop resized to 224×224 → CLIP ViT-L/14 → 1024-d feature per crop
+  + Position MLP over the normalized box (x, y, w, h) → 8 visual tokens
+  → Projection head (512-d) → Cross-attention fusion → Linear (768-d) prefix → GPT-2 → Report
 ```
 
-1. **Detect regions** — Faster R-CNN proposes salient anatomical regions via bounding boxes (region extraction, not disease classification).
-2. **Select patches** — regions ranked by confidence; top salient patches used by default.
-3. **Add spatial context** — CLIP ViT-L/14 extracts visual features; normalized box coordinates retain where each region occurs.
+| # | Component | Implementation | Output per image | During training |
+|---|---|---|---|---|
+| 1 | Region detector | torchvision Faster R-CNN, ResNet-34 + FPN backbone, `num_anatomical_classes: 29` | 8 boxes + 8 crops of 28×28 | Frozen |
+| 2 | Image encoder | CLIP ViT-L/14 (`openai/clip-vit-large-patch14`), pooled output | 8 × 1024 | Frozen |
+| 3 | Position MLP | Linear 4 → 256 → 256 → 1024 with GELU | 8 × 1024 (added to the CLIP features) | Trained |
+| 4 | Text encoder (training only) | ClinicalBERT (`medicalai/ClinicalBERT`), up to 128 tokens | Token embeddings (768-d) + mean-pooled embedding | Frozen |
+| 5 | Projection heads | Linear → GELU → Dropout (0.1) → Linear → LayerNorm, one for visual and one for text | 512-d | Trained |
+| 6 | Cross-attention fusion | 8-head attention (dim 512) + feed-forward (×4), dropout 0.1 | 8 × 512 | Trained |
+| 7 | Prefix projection | Linear 512 → 768 | 8 × 768 | Trained |
+| 8 | Decoder | GPT-2 base (12 blocks, 768-d) | Report text | Last 4 blocks, final layer norm and LM head trained |
 
-### Training and Inference
+**How each step works:**
 
-- **Training:** Chest X-ray → Faster R-CNN + CLIP → Visual Features → Contrastive Alignment with reference report (via ClinicalBERT) → Cross-Attention → GPT-2 → Report.
-- **Inference:** No reference report available; new X-ray → visual features → decoder generates the report directly.
+1. **Region detection** — the detector runs on the 224×224 image (box score threshold 0.05, NMS 0.5). The 8 highest-scoring boxes are cropped and resized to 28×28. If fewer than 8 boxes are found, the whole image fills the remaining slots.
+2. **Visual features** — each crop is resized to 224×224, normalized with CLIP's mean and standard deviation, and encoded by CLIP ViT-L/14. The box's normalized (x, y, w, h) goes through the position MLP, and the result is added to the CLIP feature, so each of the 8 visual tokens carries both appearance and location.
+3. **Report features (training only)** — ClinicalBERT encodes the reference report into token embeddings and one mean-pooled embedding.
+4. **Contrastive alignment** — both sides are projected into a shared 512-d space. A symmetric InfoNCE loss (τ = 0.07) pulls each image's mean visual token towards its own report embedding and away from the other reports in the batch.
+5. **Fusion** — the visual tokens are the attention queries. During training, the keys and values are the ClinicalBERT report tokens. At inference there is no report, so the visual tokens attend to themselves.
+6. **Decoding** — the fused tokens are projected to 768-d and prepended to GPT-2 as a prefix (soft prompt). GPT-2 then generates the report with beam search: 4 beams, repetition penalty 1.2, no repeated 3-grams, and 77 new tokens by default.
 
-### Datasets & Training Setup
+> **Detector weights:** every config in this repo sets `detector.weights_path: null`, so no MS-CXR-trained detector is loaded. The ResNet-34 backbone starts from ImageNet weights, the detection heads are untrained, and the detector stays frozen. The 8 patches are therefore not guaranteed to be anatomical regions.
 
-| Dataset | Train | Val | Test |
+**Why this architecture (from the MediVLM paper):** selective salient patching improves performance over whole-image processing, and ClinicalBERT gives stronger text representations than the alternative CLIP text encoder.
+
+### Training Setup
+
+**Loss:**
+
+```
+L = 1.0 × L_CE + 0.7 × L_InfoNCE
+```
+
+- `L_CE` — cross-entropy over the report tokens. The reference report is tokenized by GPT-2 and padded or truncated to 77 tokens; prefix and padding positions are ignored.
+- `L_InfoNCE` — symmetric contrastive loss: the average of the image-to-text and text-to-image cross-entropies over the batch's cosine similarities divided by τ = 0.07.
+
+**Optimization:**
+
+| Setting | Value |
+|---|---|
+| Optimizer | AdamW, LR = 2 × 10⁻⁵, weight decay 1 × 10⁻⁴ |
+| Schedule | 500 linear warm-up steps, then cosine decay to a floor of 5% of the LR |
+| Gradient clipping | 1.0 |
+| Mixed precision | On (CUDA only) |
+| Batch size | 32 (GPT-2 runs) |
+| Seed | 42 |
+
+**Frozen vs. trained:**
+
+- **Frozen:** the detector, CLIP, ClinicalBERT, and GPT-2's position embeddings and first 8 blocks.
+- **Trained:** the position MLP, both projection heads, the fusion block, the prefix projection, and GPT-2's last 4 blocks, final layer norm and LM head (tied to the token embeddings).
+- **Count:** 72,272,896 trainable of 606,206,176 total parameters (from the training log).
+
+**Checkpoints:** the trainer saves `epoch_N.ckpt` after every epoch and `best.ckpt` for the epoch with the highest validation BLEU-4. After training, it scores the test split and writes `test_metrics.json`. Generated and reference reports are saved as `hyp.txt` and `ref.txt`.
+
+**Image preprocessing:** training images are resized to 240×240 and randomly cropped to 224×224, with no horizontal flip (left and right must be kept). Evaluation and inference images are resized to 224×224. Pixel values stay in [0, 1] for the detector, and the image encoder applies CLIP normalization itself.
+
+### Data
+
+- **Source:** a Kaggle export of MIMIC-CXR (`mimic_cxr_aug_train.csv`, `mimic_cxr_aug_validate.csv`, images under `official_data_iccv_final/`), unzipped from Google Drive.
+- **Annotations:** each training notebook builds `annotations.json` from the CSVs (`image`, `subject_id`, `text` columns), giving 64,586 training rows. The validation CSV is used for both `val` and `test`, so test scores are not independent of validation.
+- **Images:** only the first image listed for each report is used. Rows whose image is missing from the zip are skipped; in the 1-epoch run, 45,224 of 64,586 training rows and 338 of 500 validation rows remain.
+- **Reports:** reports are lower-cased, de-identification placeholders become `xxxx`, and each report is cut to 4 sentences. The report text in the CSV is a stringified Python list (`['findings: ...', ...]`), and the model learns to write in that format.
+
+The MediVLM paper trains on the full MIMIC-CXR split (369K / 3.0K / 5.2K images) for 30–50 epochs at batch size 32. The runs in this repo are much smaller.
+
+### Experiments in This Repo
+
+| Notebook | Training data | Epochs | Status |
 |---|---|---|---|
-| MIMIC-CXR | 369K | 3.0K | 5.2K |
+| `MediVLM_MIMIC_Sample_Train.ipynb` | First 20,000 training rows with images, batch 32 | 3 | Run. Its `best.ckpt` (epoch 1) is the `mimic_sample.ckpt` used by the pipeline: the checkpoint's stored metrics match epoch 1. |
+| `MediVLM_MIMIC_1_Epoch.ipynb` | All 45,224 training rows with images, batch 32 | 1 | Run |
+| `MediVLM_MIMIC_Full_Training.ipynb` | Full `annotations.json`, every component unfrozen, batch 8 | 20 | Config only. Never run (no saved outputs). |
+| `qwen_mimic_sample.ipynb` | All training rows with images, batch 2 | 1 | Experimental decoder. No saved outputs. |
 
-Training: AdamW optimizer, LR = 2 × 10⁻⁵, batch size 32, 30–50 epochs.
+**Qwen experiment:** GPT-2 is replaced by Qwen2.5-3B-Instruct, loaded in 4-bit NF4 with LoRA (r = 8, α = 16, dropout 0.05, on `q_proj` / `v_proj`). ClinicalBERT is replaced by DistilBERT (`distilbert-base-uncased`). Reports can be up to 150 tokens, and training uses the notebook's own loop (AdamW, LR = 2 × 10⁻⁵, mixed precision).
 
-### Evaluation Metrics
-- **NLG:** BLEU-1 to BLEU-4, METEOR, ROUGE-L
-- **Semantic/Clinical:** BERTScore, RadGraph-F1, RaTEScore
-- **Additional:** Severity Score
+### Results
 
-### Our Report-Generation Results
+The MediVLM trainer computes BLEU-1–4 (NLTK corpus BLEU), METEOR (NLTK) and ROUGE-L (`rouge-score` F1). The test split is the validation split in every run.
 
-| Metric | GPT-2 | Qwen |
-|---|---|---|
-| BLEU-1 | 0.3631 | 0.2111 |
-| BLEU-2 | 0.2401 | 0.1444 |
-| BLEU-3 | 0.1707 | 0.1061 |
-| BLEU-4 | 0.1228 | 0.0784 |
-| METEOR | 0.3700 | 0.3456 |
-| ROUGE-L | 0.2700 | 0.2237 |
+**Summary:**
 
-GPT-2 is the original MediVLM decoder; Qwen is an experimental alternative decoder. GPT-2 scores higher on BLEU-1-4, METEOR, and ROUGE-L in this experiment; Qwen additionally reports a BERTScore of 0.7864.
+| Run | BLEU-1 | BLEU-2 | BLEU-3 | BLEU-4 | METEOR | ROUGE-L |
+|---|---|---|---|---|---|---|
+| 20k sample, epoch 1, val (`mimic_sample.ckpt`) | 0.3752 | 0.2510 | 0.1820 | 0.1316 | 0.3792 | 0.2624 |
+| 20k sample, epoch 3, test | 0.3631 | 0.2401 | 0.1707 | 0.1228 | 0.3583 | 0.2535 |
+| 45,224 rows, 1 epoch, test | 0.3554 | 0.2340 | 0.1658 | 0.1192 | 0.3500 | 0.2464 |
 
-**Why this architecture:** Selective salient patching improves performance over whole-image processing, while ClinicalBERT gives stronger text representation than the alternative CLIP text encoder.
+**20k sample run, per epoch:**
 
----
+| Epoch | Train loss | BLEU-1 | BLEU-2 | BLEU-3 | BLEU-4 | METEOR | ROUGE-L |
+|---|---|---|---|---|---|---|---|
+| 1 (best) | 5.5421 | 0.3752 | 0.2510 | 0.1820 | 0.1316 | 0.3792 | 0.2624 |
+| 2 | 4.0469 | 0.3595 | 0.2344 | 0.1641 | 0.1162 | 0.3539 | 0.2485 |
+| 3 | 3.8881 | 0.3631 | 0.2401 | 0.1707 | 0.1228 | 0.3583 | 0.2535 |
+
+Training loss keeps falling, but validation scores peak at epoch 1, so `best.ckpt` is the epoch-1 model. The final test scores equal the epoch-3 validation scores because test and validation are the same split.
+
+**Qwen:** the Qwen notebook has no saved outputs and no evaluation step. TEAM_95_PR2 (slide 25) reports BLEU-1 0.2111, BLEU-2 0.1444, BLEU-3 0.1061, BLEU-4 0.0784, METEOR 0.3456, ROUGE-L 0.2237 and BERTScore 0.7864 for it, but these numbers cannot be reproduced from this repo.
+
+**Other metrics:** the MediVLM repo also implements BERTScore, RadGraph-F1, RaTEScore and a TF-IDF severity score (`scripts/evaluate.py`), but no notebook here runs them.
+
+**Example output:** raw output of `best.ckpt` from the 20k sample run on a test image (`MediVLM_MIMIC_Sample_Train.ipynb`, section 7):
+
+```
+['findings: impression: the lungs are clear. there is no pleural effusion or pneumothorax. the cardiomediastinal silhouette is within normal limits. no acute osseous abnormalities identified. impression: no acute cardiopulmonary process.']
+```
+
+The decoder kept writing after the closing `']`. The ReXTrust pipeline keeps only the first report and cleans it (see below).
+
+### Inference in the ReXTrust Pipeline
+
+`generate_report` in `Complete Pipeline/pipeline_core.py`:
+
+- **Input:** the enhanced 256×256 grayscale X-ray, converted to RGB and resized to 224×224. The disease-detection labels are **not** passed to MediVLM; `report_vs_detection` compares the report with the detector afterwards.
+- **Loading:** the MediVLM repo is cloned once into `Models/Report/MediVLM` and pinned to commit `f5a6e1d`. The model config is read from the checkpoint. The Hugging Face sub-models are built from their configs only, because every weight comes from `mimic_sample.ckpt`. The state dict is loaded strictly, with CLIP keys remapped for transformers ≥ 5.
+- **Generation:** 4 beams and up to 150 new tokens, because the checkpoint's 77-token limit cuts reports off mid-sentence.
+- **Cleaning:** `clean_report` keeps only the first report from the stringified list and splits it into FINDINGS and IMPRESSION. It removes comparison clauses that refer to a prior study, and drops sentences containing `xxxx`, change-only sentences ("no change", "stable") and sentences cut off by the token limit. The cleaned report goes to RadCheck RAG, and the raw decoder output is kept alongside it.
+
+### How to Run (Colab)
+
+The notebooks run on Google Colab with a GPU and the MIMIC-CXR zip at `/content/drive/MyDrive/mimic_cxr.zip`.
+
+**1. Set up the MediVLM code:**
+
+```bash
+git clone https://github.com/sonai-commits/MediVLM.git
+cd MediVLM
+pip install -r requirements.txt
+pip install radgraph RaTEScore
+pip install -e .
+```
+
+**2. Prepare the data and config:** run the notebook cells that unzip the dataset, build `annotations.json` (and `annotations_sample.json` for the 20k run), and write `configs/mimic_cxr_sample.yaml`. That config is created by the notebook and is not part of the MediVLM repo.
+
+**3. Train:**
+
+```bash
+python scripts/train_supervised.py --config configs/mimic_cxr_sample.yaml
+```
+
+**4. Generate a report for one image:**
+
+```bash
+python scripts/inference.py \
+    --config configs/mimic_cxr_sample.yaml \
+    --checkpoint outputs/mimic_cxr_sample/best.ckpt \
+    --image /content/1.jpg
+```
+
+**From Python** (as in `MediVLM_Colab_Inference.ipynb`):
+
+```python
+import torch
+from PIL import Image
+from medivlm.data.transforms import build_image_transform
+from medivlm.models import MediVLM
+from medivlm.utils import load_checkpoint, load_config
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+cfg = load_config("configs/mimic_cxr_sample.yaml")
+model = MediVLM(cfg).to(device)
+load_checkpoint("/content/mimic_sample.ckpt", model=model, map_location=device)
+model.eval()
+
+transform = build_image_transform(cfg.image_encoder.image_size, train=False)
+image = transform(Image.open("xray.jpg").convert("RGB")).unsqueeze(0).to(device)
+with torch.no_grad():
+    report = model.generate(image, num_beams=4)[0]
+print(report)
+```
+
+### Known Limitations
+
+- **Untrained detector:** with `weights_path: null`, the region detector has no MS-CXR weights, so patch selection is not anatomy-aware.
+- **Training/inference mismatch:** fusion attends to the reference report during training but only to the image at inference.
+- **Small training runs:** at most 45,224 training rows and 3 epochs, compared with the paper's 369K images and 30–50 epochs. Full end-to-end training was configured but never run.
+- **No independent test set:** the validation split is reused as the test split.
+- **Output format:** the model writes reports as a stringified list and often continues past the first report, so the pipeline has to clean its output.
+- **Unverified Qwen results:** the Qwen scores exist only on the review slides.
+
+### Files (`MediVLM/`)
+
+| File | Purpose |
+|---|---|
+| `MediVLM_MIMIC_Sample_Train.ipynb` | 20k-sample training run (Colab) |
+| `MediVLM_MIMIC_1_Epoch.ipynb` | 1-epoch run on all available rows; patches the dataset class to skip missing images |
+| `MediVLM_MIMIC_Full_Training.ipynb` | Fully unfrozen 20-epoch config (not run) |
+| `qwen_mimic_sample.ipynb` | Qwen2.5-3B + LoRA decoder experiment |
+| `MediVLM_Colab_Inference.ipynb` | Single-image inference from a saved checkpoint |
+| `app.py` | Gradio app: MediVLM report, then AMG-RAG check (run from inside a MediVLM clone) |
+| `rag_module_source.py` | AMG-RAG module used by `app.py` |
+| `requirements.txt` | MediVLM dependencies |
+| `README.md` | Detailed MediVLM documentation |
+
 
 ## Module 5: RadCheck RAG — Clinical Hallucination Detection
 
