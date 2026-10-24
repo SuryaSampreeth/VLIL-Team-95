@@ -1,413 +1,770 @@
-# ReXTrust: XAI-Driven Multi-Disease Diagnosis in Chest X-rays via Conditional Enhancement and Grounded Reporting
+# ReXTrust: An Explainable AI Pipeline for Chest X-ray Analysis
 
-## Overview
+### Integrating Image Enhancement, Multi-Label Disease Detection, Visual Explainability, Vision-Language Models, and RAG-Based Report Validation
 
-ReXTrust is an end-to-end, explainable AI pipeline for multi-disease diagnosis from chest X-rays. It addresses three unresolved challenges in AI-based chest X-ray diagnosis:
-
-1. **Degraded image quality** — X-rays from low-resource settings often suffer from noise, low contrast, and poor illumination.
-2. **Lack of per-disease spatial verification** — existing explainability methods produce a single blended saliency map instead of independently verifiable, per-disease heatmaps.
-3. **Ungrounded AI-generated reports** — vision-language models can generate fluent but hallucinated clinical text with no verification against external medical knowledge.
-
-The system is built as a five-stage pipeline:
-
-```
-Chest X-ray → Image Enhancement → Disease Detection → Explainability (Score-CAM)
-           → Report Generation (MediVLM) → Grounding & Validation (RadCheck RAG)
-```
+**Project:** ReXTrust  
+**Team:** VLIL Team 95  
+**Institution:** Amrita Vishwa Vidyapeetham, Coimbatore  
+**Domain:** Medical Imaging · Deep Learning · Explainable AI · Retrieval-Augmented Generation
 
 ---
 
-## Pipeline Architecture
+## Abstract
 
-1. **Input** — Chest X-ray from the CheXpert dataset (DICOM/JPEG).
-2. **Image Quality Assessment** — Routes each image to enhancement if quality is low, or passes it unchanged if acceptable.
-3. **Image Enhancement** — Attention U-Net + CLAHE improves contrast and denoises without destroying anatomical/clinical detail.
-4. **Disease Detection** — Multi-label classifier producing per-disease confidence scores.
-5. **Explainability** — Score-CAM generates an independent saliency heatmap per predicted disease.
-6. **Report Generation** — MediVLM (vision-language model) generates symptom/clinical text grounded in the detected findings.
-7. **RadCheck — Report Grounding** — Validates the generated report against external medical evidence and internal consistency, producing a confidence-scored, hallucination-checked report.
-8. **Structured Diagnostic Output** — Enhanced image + disease confidence scores + per-disease saliency maps + RAG-grounded clinical report.
+Chest X-ray interpretation is an important component of thoracic disease assessment. However, variations in image quality, the complexity of disease classification, limited model interpretability, and the possibility of unsupported statements in generated reports present challenges for automated medical-image analysis.
 
----
+**ReXTrust** is an integrated research pipeline designed to investigate these challenges through a modular combination of image enhancement, multi-label disease detection, disease-specific visual explanations, vision-language report generation, and retrieval-augmented report validation.
 
-## Module 1: Image Enhancement
+The pipeline incorporates an Attention U-Net + Contrast Limited Adaptive Histogram Equalization (CLAHE) approach for conditional image enhancement, a deep-learning classifier for predicting thoracic findings, Score-CAM for disease-specific saliency maps, MediVLM for vision-language report generation, and RadCheck RAG for evidence-grounded report verification.
 
-**Objective:** Improve visual quality and contrast of chest X-rays while preserving anatomical detail needed by downstream detection and reporting stages.
+The objective is to produce a structured output that combines an enhanced or unchanged radiograph, disease confidence scores, per-disease saliency maps, and a report accompanied by validation information.
 
-### Methods Implemented & Compared
-
-**Classical & learned baselines**
-- **CLAHE** — clip-limited adaptive histogram equalization (classical baseline)
-- **UniMIE** — pretrained diffusion-prior backbone (Fei et al., 2025)
-- **Zero-DCE** — unsupervised DCE-Net with spatial-consistency, exposure, color-constancy, and illumination-smoothness losses (Guo et al., 2020)
-- **U-Net** — supervised model trained on CLAHE-target pairs with L1 + SSIM + Laplacian loss, 60 epochs (Ronneberger et al., 2015)
-
-**Proposed hybrid pipelines**
-- **U-Net + CLAHE** — U-Net denoises, CLAHE boosts contrast on the clean output
-- **Attention U-Net + CBAM** — 4-stage ResBlock encoder/decoder with CBAM channel+spatial attention at the bottleneck and Attention Gates on every skip connection
-- **Attention U-Net + CLAHE (Ours — final proposed pipeline)** — best average rank across all 5 evaluation metrics
-
-### Proposed Architecture: Attention U-Net + CLAHE
-
-- **Residual Blocks** — preserve important features while improving gradient/feature flow
-- **CBAM** — channel + spatial attention applied at the bottleneck
-- **Attention Gates** — selectively pass relevant encoder features to the decoder via skip connections
-- **CLAHE (post-processing)** — enhances local contrast (clip limit 2.0, tile size 8×8) while limiting noise amplification
-
-### Evaluation
-
-Evaluated on 23 low-quality CheXpert images across 8 methods using **BRISQUE (↓), Entropy (↑), Sharpness (↑), CII (↑), EME (↑)**.
-
-| Method | BRISQUE ↓ | Entropy ↑ | Sharpness ↑ | CII | Avg Rank |
-|---|---|---|---|---|---|
-| **Attn U-Net + CLAHE (Ours)** | 13.35 | **7.92** | 2082.3 | **1.90** | **2.2** |
-| U-Net V3 + CLAHE | 17.51 | 7.91 | 1859.7 | 1.76 | 3.2 |
-| CLAHE | 7.01 | 7.84 | 3609.6 | 1.71 | 3.8 |
-| Attention U-Net | 13.22 | 7.86 | 1295.7 | 1.37 | 4.6 |
-| Original | 5.62 | 7.85 | 534.3 | 1.00 | 5.2 |
-| Zero-DCE | 19.59 | 6.54 | 1766.4 | 1.27 | 5.4 |
-| U-Net V3 | 17.96 | 7.86 | 1190.9 | 1.29 | 5.6 |
-| UniMIE | -0.73 | 7.85 | 725.5 | 0.93 | 6.0 |
-
-**Key takeaways:**
-- Best average rank (2.2) across all 5 metrics on 23 CheXpert test images.
-- Highest Entropy (7.92) → retains the most diagnostically-relevant structural detail.
-- Highest CII (1.90) → best contrast improvement, clearer anatomical boundaries.
-- Stays in the top 2 methods on 4 of 5 metrics.
-- Support devices (wires/tubes/leads) remain visible after enhancement — quality improves without erasing clinically relevant structural detail.
+ReXTrust is intended for research and educational purposes. Its integration into a single pipeline does not establish clinical validity, diagnostic reliability, or readiness for clinical deployment. These require independent evaluation and appropriate clinical oversight.
 
 ---
 
-## Module 2: Disease Detection
+## Table of Contents
 
-**Objective:** Predict Cardiomegaly, Edema, and Pleural Effusion from chest X-rays, and compare architectures under one identical, leak-free data/evaluation protocol so gains are attributable to model design, not data variation.
-
-### Shared Data Foundation (built once, reused by all techniques)
-
-```
-Raw CheXpert Data → Balanced Subsample (frontal only, per-disease sampling)
-                  → Patient-Level Split (70/15/15, zero leakage)
-                  → Shared Loaders (Train / Val / Test)
-```
-
-All four techniques train, validate, and test on the exact same images with thresholds tuned only on the validation split, so architecture is the only variable being compared.
-
-### Techniques Compared
-
-1. **CNN (Baseline Recipe)** — DenseNet121 → GAP → Linear(3). Plain BCE loss, no dropout, no scheduler (literal CheXNet recipe, literature-comparable reference).
-2. **CNN (Matched Recipe)** — Same architecture as baseline, with Focal Loss + dropout (0.3) + LR scheduler; isolates the "recipe" effect.
-3. **Hybrid CNN-Transformer** — DenseNet121 features → patch tokens + [CLS] → 2-layer Transformer encoder → classify off [CLS]. Uses the matched recipe.
-4. **CheXGCN** — Image features + a GCN over the disease co-occurrence graph (built from the train split only), dot-product classifier. Uses the matched recipe.
-
-Thresholds are tuned per disease on the validation set only, then frozen and applied to the test set for Precision/Recall/F1.
-
-### Evaluation Across Data Scales (1k, 6k, 20k images per disease)
-
-**Key takeaways:**
-- **CheXGCN** shows the largest improvement with increased data — lowest AUC at 1k, tied-highest AUC on Cardiomegaly and Pleural Effusion at 20k, consistent with the graph-based co-occurrence signal needing more samples to be reliable.
-- **Most performance gains occur between 1k and 6k images**, with a plateau (and occasional slight decrease) from 6k to 20k — diminishing returns beyond 6k.
-- **Hybrid CNN-Transformer** needs more data to be competitive — lowest/near-lowest F1/AUC at 1k, consistent with higher data requirements of Transformer attention vs. the built-in spatial inductive bias of CNNs.
-- **Relative rankings shift substantially with scale** — at 6k/20k, no single architecture dominates; Hybrid and CheXGCN each top at least one disease while the CNN baseline drops to 2nd/3rd on several occasions. Architecture choice matters less than data volume at this scale.
+1. [Project Overview](#1-project-overview)
+2. [Problem Statement](#2-problem-statement)
+3. [Objectives](#3-objectives)
+4. [System Architecture](#4-system-architecture)
+5. [Pipeline Components](#5-pipeline-components)
+6. [Image Enhancement](#6-image-enhancement)
+7. [Disease Detection](#7-disease-detection)
+8. [Explainability with Score-CAM](#8-explainability-with-score-cam)
+9. [Vision-Language Report Generation](#9-vision-language-report-generation)
+10. [RadCheck RAG Report Validation](#10-radcheck-rag-report-validation)
+11. [Structured Diagnostic Output](#11-structured-diagnostic-output)
+12. [Repository Structure](#12-repository-structure)
+13. [Technology Stack](#13-technology-stack)
+14. [Installation and Setup](#14-installation-and-setup)
+15. [Execution Workflow](#15-execution-workflow)
+16. [Evaluation Strategy](#16-evaluation-strategy)
+17. [Limitations](#17-limitations)
+18. [Future Work](#18-future-work)
+19. [Responsible Use](#19-responsible-use)
+20. [Acknowledgements](#20-acknowledgements)
+21. [References](#21-references)
 
 ---
 
-## Module 3: Explainability — Score-CAM
+## 1. Project Overview
 
-```
-Conv Feature Maps → Upsample & Normalize → Mask Input & Forward Pass
-                  → Weighted Sum + ReLU → Upsampled Heatmap
-```
+ReXTrust is a modular chest X-ray analysis pipeline that brings together complementary techniques from medical image processing, deep learning, explainable AI, vision-language modelling, and retrieval-augmented generation.
 
-- **Why Score-CAM:** Gradient-free — instead of backpropagating gradients (as in Grad-CAM), each activation map is used directly as an image mask and scored via a forward pass, avoiding gradient noise/saturation in deep CNNs.
-- **Target layer:** Final DenseNet121 conv block (`denseblock4` / `norm5`) — deep enough to encode disease-relevant spatial features, coarse enough to localize well after upsampling.
-- **Independent per disease:** Run separately for each of the 3 diseases using that disease's own class score, so each heatmap is independently, spatially verifiable — not one blended saliency map.
-- CheXGCN was selected for the clearest per-disease spatial differentiation, independent of raw AUC/F1 ranking.
+Instead of treating disease classification as an isolated prediction task, the system is designed to provide several forms of supporting information:
+
+- An enhanced image when the input quality assessment indicates that enhancement is needed.
+- Multi-label disease predictions and associated confidence scores.
+- A separate visual saliency map for each predicted disease.
+- Vision-language-generated clinical text.
+- Evidence-grounding and report-validation information.
+- A consolidated structured output.
+
+### Key Features
+
+- **Conditional image enhancement:** Avoids applying enhancement indiscriminately to every input.
+- **Multi-label disease detection:** Supports predictions for multiple thoracic findings.
+- **Disease-specific explainability:** Generates separate Score-CAM maps for individual predicted classes.
+- **Vision-language integration:** Uses MediVLM for clinical text generation.
+- **Evidence-grounded validation:** Uses RadCheck RAG to assess generated report claims.
+- **Modular architecture:** Separates individual components to support development and evaluation.
 
 ---
 
-## Module 4: Report Generation — MediVLM
+## 2. Problem Statement
 
-**Objective:** Generate a radiology report from a chest X-ray using region-aware visual understanding combined with medical language representation.
+Automated chest X-ray analysis involves several interconnected challenges.
 
-**Where it fits:** MediVLM is the report-generation stage of ReXTrust. It takes the enhanced X-ray and writes a report; RadCheck RAG (Module 5) then verifies that report. MediVLM runs on the image alone: the disease-detection results are not passed to it, and the report is compared with the detector's output afterwards.
+1. **Image quality:** Low contrast and uneven illumination can affect image visibility.
+2. **Disease classification:** A single radiograph may contain multiple findings, requiring multi-label prediction.
+3. **Interpretability:** Confidence scores alone do not explain which image regions influenced a prediction.
+4. **Report generation:** Generated clinical text may contain unsupported or inconsistent statements.
+5. **Evidence grounding:** Generated reports require mechanisms to compare their claims with relevant medical evidence.
+6. **Integration:** Predictions, explanations, and reports must be brought together in a coherent output.
 
-**Source code:** the MediVLM model code is not in this repository. The notebooks clone the public implementation from [sonai-commits/MediVLM](https://github.com/sonai-commits/MediVLM), and the end-to-end pipeline (`Complete Pipeline/pipeline_core.py`) pins it to commit `f5a6e1d`. Everything below is taken from that code, the notebooks in `MediVLM/`, and their saved outputs.
+ReXTrust investigates a modular approach to these challenges by combining image processing, predictive modelling, visual explanation, and report validation.
 
-### Architecture
+---
 
+## 3. Objectives
+
+The major objectives of the project are:
+
+1. Develop a conditional chest X-ray enhancement workflow.
+2. Investigate Attention U-Net + CLAHE for image restoration and local contrast enhancement.
+3. Implement multi-label classification of selected thoracic findings.
+4. Generate disease-specific explanations using Score-CAM.
+5. Integrate a vision-language model for report generation.
+6. Implement retrieval-augmented report grounding and validation.
+7. Consolidate the outputs into a structured diagnostic-support format.
+8. Evaluate individual components using appropriate quantitative and qualitative methods.
+9. Investigate limitations related to data leakage, prediction uncertainty, and generated-report reliability.
+
+---
+
+## 4. System Architecture
+
+ReXTrust follows a modular architecture in which image enhancement, disease detection, explainability, and report generation perform separate responsibilities before their outputs are consolidated.
+
+### 4.1 Overall Architecture
+
+The following architecture diagram illustrates the intended interaction between the major system components.
+
+![ReXTrust Overall System Architecture](rextrust_architecture.png)
+
+*Figure 1. Overall ReXTrust architecture showing conditional image enhancement, multi-label disease detection, Score-CAM explainability, MediVLM report generation, RadCheck RAG validation, and structured diagnostic output.*
+
+**Image location:** `rextrust_architecture.png` in the repository root.
+
+### 4.2 End-to-End Processing Workflow
+
+```mermaid
+flowchart TD
+    A["Chest X-ray Input<br/>CheXpert Dataset"] --> B["Image Quality Assessment"]
+
+    B -->|Low quality| C["Attention U-Net + CLAHE"]
+    B -->|Acceptable quality| D["Skip Enhancement"]
+
+    C --> E["Multi-Label Disease Detection"]
+    D --> E
+
+    E --> F["Disease Predictions<br/>Confidence Scores"]
+
+    F --> G["Score-CAM Explainability"]
+    G --> H["Disease-Specific Saliency Maps"]
+
+    A --> I["MediVLM<br/>Vision-Language Report Generation"]
+    I --> J["RadCheck RAG<br/>Report Grounding and Validation"]
+
+    H --> K["Structured Diagnostic Output"]
+    J --> K
+
+    K --> L["Enhanced or Original Image"]
+    K --> M["Disease Confidence Scores"]
+    K --> N["Per-Disease Saliency Maps"]
+    K --> O["Generated Report and Validation Results"]
+
+    classDef input fill:#D9F0F5,stroke:#1596B5,color:#172B3A
+    classDef enhancement fill:#F1DCEB,stroke:#B44A8B,color:#302033
+    classDef detection fill:#DDF2D5,stroke:#57A63A,color:#19351A
+    classDef explain fill:#F4DDF9,stroke:#A44BD4,color:#32143C
+    classDef reporting fill:#FCE3D1,stroke:#D66C24,color:#462713
+    classDef output fill:#D8E9FF,stroke:#3984F5,color:#102E54
+
+    class A,B input
+    class C,D enhancement
+    class E,F detection
+    class G,H explain
+    class I,J reporting
+    class K,L,M,N,O output
 ```
-Chest X-ray (224×224, values in [0, 1])
-  → Faster R-CNN (ResNet-34 + FPN) → 8 highest-scoring boxes → 8 crops of 28×28
-  → each crop resized to 224×224 → CLIP ViT-L/14 → 1024-d feature per crop
-  + Position MLP over the normalized box (x, y, w, h) → 8 visual tokens
-  → Projection head (512-d) → Cross-attention fusion → Linear (768-d) prefix → GPT-2 → Report
-```
 
-| # | Component | Implementation | Output per image | During training |
-|---|---|---|---|---|
-| 1 | Region detector | torchvision Faster R-CNN, ResNet-34 + FPN backbone, `num_anatomical_classes: 29` | 8 boxes + 8 crops of 28×28 | Frozen |
-| 2 | Image encoder | CLIP ViT-L/14 (`openai/clip-vit-large-patch14`), pooled output | 8 × 1024 | Frozen |
-| 3 | Position MLP | Linear 4 → 256 → 256 → 1024 with GELU | 8 × 1024 (added to the CLIP features) | Trained |
-| 4 | Text encoder (training only) | ClinicalBERT (`medicalai/ClinicalBERT`), up to 128 tokens | Token embeddings (768-d) + mean-pooled embedding | Frozen |
-| 5 | Projection heads | Linear → GELU → Dropout (0.1) → Linear → LayerNorm, one for visual and one for text | 512-d | Trained |
-| 6 | Cross-attention fusion | 8-head attention (dim 512) + feed-forward (×4), dropout 0.1 | 8 × 512 | Trained |
-| 7 | Prefix projection | Linear 512 → 768 | 8 × 768 | Trained |
-| 8 | Decoder | GPT-2 base (12 blocks, 768-d) | Report text | Last 4 blocks, final layer norm and LM head trained |
+### 4.3 Data Flow
 
-**How each step works:**
-
-1. **Region detection** — the detector runs on the 224×224 image (box score threshold 0.05, NMS 0.5). The 8 highest-scoring boxes are cropped and resized to 28×28. If fewer than 8 boxes are found, the whole image fills the remaining slots.
-2. **Visual features** — each crop is resized to 224×224, normalized with CLIP's mean and standard deviation, and encoded by CLIP ViT-L/14. The box's normalized (x, y, w, h) goes through the position MLP, and the result is added to the CLIP feature, so each of the 8 visual tokens carries both appearance and location.
-3. **Report features (training only)** — ClinicalBERT encodes the reference report into token embeddings and one mean-pooled embedding.
-4. **Contrastive alignment** — both sides are projected into a shared 512-d space. A symmetric InfoNCE loss (τ = 0.07) pulls each image's mean visual token towards its own report embedding and away from the other reports in the batch.
-5. **Fusion** — the visual tokens are the attention queries. During training, the keys and values are the ClinicalBERT report tokens. At inference there is no report, so the visual tokens attend to themselves.
-6. **Decoding** — the fused tokens are projected to 768-d and prepended to GPT-2 as a prefix (soft prompt). GPT-2 then generates the report with beam search: 4 beams, repetition penalty 1.2, no repeated 3-grams, and 77 new tokens by default.
-
-> **Detector weights:** every config in this repo sets `detector.weights_path: null`, so no MS-CXR-trained detector is loaded. The ResNet-34 backbone starts from ImageNet weights, the detection heads are untrained, and the detector stays frozen. The 8 patches are therefore not guaranteed to be anatomical regions.
-
-**Why this architecture (from the MediVLM paper):** selective salient patching improves performance over whole-image processing, and ClinicalBERT gives stronger text representations than the alternative CLIP text encoder.
-
-### Training Setup
-
-**Loss:**
-
-```
-L = 1.0 × L_CE + 0.7 × L_InfoNCE
-```
-
-- `L_CE` — cross-entropy over the report tokens. The reference report is tokenized by GPT-2 and padded or truncated to 77 tokens; prefix and padding positions are ignored.
-- `L_InfoNCE` — symmetric contrastive loss: the average of the image-to-text and text-to-image cross-entropies over the batch's cosine similarities divided by τ = 0.07.
-
-**Optimization:**
-
-| Setting | Value |
-|---|---|
-| Optimizer | AdamW, LR = 2 × 10⁻⁵, weight decay 1 × 10⁻⁴ |
-| Schedule | 500 linear warm-up steps, then cosine decay to a floor of 5% of the LR |
-| Gradient clipping | 1.0 |
-| Mixed precision | On (CUDA only) |
-| Batch size | 32 (GPT-2 runs) |
-| Seed | 42 |
-
-**Frozen vs. trained:**
-
-- **Frozen:** the detector, CLIP, ClinicalBERT, and GPT-2's position embeddings and first 8 blocks.
-- **Trained:** the position MLP, both projection heads, the fusion block, the prefix projection, and GPT-2's last 4 blocks, final layer norm and LM head (tied to the token embeddings).
-- **Count:** 72,272,896 trainable of 606,206,176 total parameters (from the training log).
-
-**Checkpoints:** the trainer saves `epoch_N.ckpt` after every epoch and `best.ckpt` for the epoch with the highest validation BLEU-4. After training, it scores the test split and writes `test_metrics.json`. Generated and reference reports are saved as `hyp.txt` and `ref.txt`.
-
-**Image preprocessing:** training images are resized to 240×240 and randomly cropped to 224×224, with no horizontal flip (left and right must be kept). Evaluation and inference images are resized to 224×224. Pixel values stay in [0, 1] for the detector, and the image encoder applies CLIP normalization itself.
-
-### Data
-
-- **Source:** a Kaggle export of MIMIC-CXR (`mimic_cxr_aug_train.csv`, `mimic_cxr_aug_validate.csv`, images under `official_data_iccv_final/`), unzipped from Google Drive.
-- **Annotations:** each training notebook builds `annotations.json` from the CSVs (`image`, `subject_id`, `text` columns), giving 64,586 training rows. The validation CSV is used for both `val` and `test`, so test scores are not independent of validation.
-- **Images:** only the first image listed for each report is used. Rows whose image is missing from the zip are skipped; in the 1-epoch run, 45,224 of 64,586 training rows and 338 of 500 validation rows remain.
-- **Reports:** reports are lower-cased, de-identification placeholders become `xxxx`, and each report is cut to 4 sentences. The report text in the CSV is a stringified Python list (`['findings: ...', ...]`), and the model learns to write in that format.
-
-The MediVLM paper trains on the full MIMIC-CXR split (369K / 3.0K / 5.2K images) for 30–50 epochs at batch size 32. The runs in this repo are much smaller.
-
-### Experiments in This Repo
-
-| Notebook | Training data | Epochs | Status |
+| Stage | Input | Processing | Output |
 |---|---|---|---|
-| `MediVLM_MIMIC_Sample_Train.ipynb` | First 20,000 training rows with images, batch 32 | 3 | Run. Its `best.ckpt` (epoch 1) is the `mimic_sample.ckpt` used by the pipeline: the checkpoint's stored metrics match epoch 1. |
-| `MediVLM_MIMIC_1_Epoch.ipynb` | All 45,224 training rows with images, batch 32 | 1 | Run |
-| `MediVLM_MIMIC_Full_Training.ipynb` | Full `annotations.json`, every component unfrozen, batch 8 | 20 | Config only. Never run (no saved outputs). |
-| `qwen_mimic_sample.ipynb` | All training rows with images, batch 2 | 1 | Experimental decoder. No saved outputs. |
+| 1. Image input | Chest X-ray | Image loading and preprocessing | Model-ready image |
+| 2. Quality assessment | Input image | Quality screening | Enhancement decision |
+| 3. Enhancement | Low-quality image | Attention U-Net + CLAHE | Enhanced image |
+| 4. Disease detection | Enhanced or original image | Multi-label classifier | Class confidence scores |
+| 5. Explainability | Image and classifier | Score-CAM | Class-specific saliency maps |
+| 6. Report generation | Chest X-ray | MediVLM | Generated clinical text |
+| 7. Report validation | Generated report and retrieved evidence | RadCheck RAG | Grounding and validation information |
+| 8. Output consolidation | Module outputs | Structured result assembly | Consolidated diagnostic-support output |
 
-**Qwen experiment:** GPT-2 is replaced by Qwen2.5-3B-Instruct, loaded in 4-bit NF4 with LoRA (r = 8, α = 16, dropout 0.05, on `q_proj` / `v_proj`). ClinicalBERT is replaced by DistilBERT (`distilbert-base-uncased`). Reports can be up to 150 tokens, and training uses the notebook's own loop (AdamW, LR = 2 × 10⁻⁵, mixed precision).
+The diagram describes the intended processing flow. Exact runtime dependencies and integration behaviour depend on the current implementation of each module.
 
-### Results
+---
 
-The MediVLM trainer computes BLEU-1–4 (NLTK corpus BLEU), METEOR (NLTK) and ROUGE-L (`rouge-score` F1). The test split is the validation split in every run.
+## 5. Pipeline Components
 
-**Summary:**
-
-| Run | BLEU-1 | BLEU-2 | BLEU-3 | BLEU-4 | METEOR | ROUGE-L |
-|---|---|---|---|---|---|---|
-| 20k sample, epoch 1, val (`mimic_sample.ckpt`) | 0.3752 | 0.2510 | 0.1820 | 0.1316 | 0.3792 | 0.2624 |
-| 20k sample, epoch 3, test | 0.3631 | 0.2401 | 0.1707 | 0.1228 | 0.3583 | 0.2535 |
-| 45,224 rows, 1 epoch, test | 0.3554 | 0.2340 | 0.1658 | 0.1192 | 0.3500 | 0.2464 |
-
-**20k sample run, per epoch:**
-
-| Epoch | Train loss | BLEU-1 | BLEU-2 | BLEU-3 | BLEU-4 | METEOR | ROUGE-L |
-|---|---|---|---|---|---|---|---|
-| 1 (best) | 5.5421 | 0.3752 | 0.2510 | 0.1820 | 0.1316 | 0.3792 | 0.2624 |
-| 2 | 4.0469 | 0.3595 | 0.2344 | 0.1641 | 0.1162 | 0.3539 | 0.2485 |
-| 3 | 3.8881 | 0.3631 | 0.2401 | 0.1707 | 0.1228 | 0.3583 | 0.2535 |
-
-Training loss keeps falling, but validation scores peak at epoch 1, so `best.ckpt` is the epoch-1 model. The final test scores equal the epoch-3 validation scores because test and validation are the same split.
-
-**Qwen:** the Qwen notebook has no saved outputs and no evaluation step. TEAM_95_PR2 (slide 25) reports BLEU-1 0.2111, BLEU-2 0.1444, BLEU-3 0.1061, BLEU-4 0.0784, METEOR 0.3456, ROUGE-L 0.2237 and BERTScore 0.7864 for it, but these numbers cannot be reproduced from this repo.
-
-**Other metrics:** the MediVLM repo also implements BERTScore, RadGraph-F1, RaTEScore and a TF-IDF severity score (`scripts/evaluate.py`), but no notebook here runs them.
-
-**Example output:** raw output of `best.ckpt` from the 20k sample run on a test image (`MediVLM_MIMIC_Sample_Train.ipynb`, section 7):
-
-```
-['findings: impression: the lungs are clear. there is no pleural effusion or pneumothorax. the cardiomediastinal silhouette is within normal limits. no acute osseous abnormalities identified. impression: no acute cardiopulmonary process.']
-```
-
-The decoder kept writing after the closing `']`. The ReXTrust pipeline keeps only the first report and cleans it (see below).
-
-### Inference in the ReXTrust Pipeline
-
-`generate_report` in `Complete Pipeline/pipeline_core.py`:
-
-- **Input:** the enhanced 256×256 grayscale X-ray, converted to RGB and resized to 224×224. The disease-detection labels are **not** passed to MediVLM; `report_vs_detection` compares the report with the detector afterwards.
-- **Loading:** the MediVLM repo is cloned once into `Models/Report/MediVLM` and pinned to commit `f5a6e1d`. The model config is read from the checkpoint. The Hugging Face sub-models are built from their configs only, because every weight comes from `mimic_sample.ckpt`. The state dict is loaded strictly, with CLIP keys remapped for transformers ≥ 5.
-- **Generation:** 4 beams and up to 150 new tokens, because the checkpoint's 77-token limit cuts reports off mid-sentence.
-- **Cleaning:** `clean_report` keeps only the first report from the stringified list and splits it into FINDINGS and IMPRESSION. It removes comparison clauses that refer to a prior study, and drops sentences containing `xxxx`, change-only sentences ("no change", "stable") and sentences cut off by the token limit. The cleaned report goes to RadCheck RAG, and the raw decoder output is kept alongside it.
-
-### How to Run (Colab)
-
-The notebooks run on Google Colab with a GPU and the MIMIC-CXR zip at `/content/drive/MyDrive/mimic_cxr.zip`.
-
-**1. Set up the MediVLM code:**
-
-```bash
-git clone https://github.com/sonai-commits/MediVLM.git
-cd MediVLM
-pip install -r requirements.txt
-pip install radgraph RaTEScore
-pip install -e .
-```
-
-**2. Prepare the data and config:** run the notebook cells that unzip the dataset, build `annotations.json` (and `annotations_sample.json` for the 20k run), and write `configs/mimic_cxr_sample.yaml`. That config is created by the notebook and is not part of the MediVLM repo.
-
-**3. Train:**
-
-```bash
-python scripts/train_supervised.py --config configs/mimic_cxr_sample.yaml
-```
-
-**4. Generate a report for one image:**
-
-```bash
-python scripts/inference.py \
-    --config configs/mimic_cxr_sample.yaml \
-    --checkpoint outputs/mimic_cxr_sample/best.ckpt \
-    --image /content/1.jpg
-```
-
-**From Python** (as in `MediVLM_Colab_Inference.ipynb`):
-
-```python
-import torch
-from PIL import Image
-from medivlm.data.transforms import build_image_transform
-from medivlm.models import MediVLM
-from medivlm.utils import load_checkpoint, load_config
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cfg = load_config("configs/mimic_cxr_sample.yaml")
-model = MediVLM(cfg).to(device)
-load_checkpoint("/content/mimic_sample.ckpt", model=model, map_location=device)
-model.eval()
-
-transform = build_image_transform(cfg.image_encoder.image_size, train=False)
-image = transform(Image.open("xray.jpg").convert("RGB")).unsqueeze(0).to(device)
-with torch.no_grad():
-    report = model.generate(image, num_beams=4)[0]
-print(report)
-```
-
-### Known Limitations
-
-- **Untrained detector:** with `weights_path: null`, the region detector has no MS-CXR weights, so patch selection is not anatomy-aware.
-- **Training/inference mismatch:** fusion attends to the reference report during training but only to the image at inference.
-- **Small training runs:** at most 45,224 training rows and 3 epochs, compared with the paper's 369K images and 30–50 epochs. Full end-to-end training was configured but never run.
-- **No independent test set:** the validation split is reused as the test split.
-- **Output format:** the model writes reports as a stringified list and often continues past the first report, so the pipeline has to clean its output.
-- **Unverified Qwen results:** the Qwen scores exist only on the review slides.
-
-### Files (`MediVLM/`)
-
-| File | Purpose |
-|---|---|
-| `MediVLM_MIMIC_Sample_Train.ipynb` | 20k-sample training run (Colab) |
-| `MediVLM_MIMIC_1_Epoch.ipynb` | 1-epoch run on all available rows; patches the dataset class to skip missing images |
-| `MediVLM_MIMIC_Full_Training.ipynb` | Fully unfrozen 20-epoch config (not run) |
-| `qwen_mimic_sample.ipynb` | Qwen2.5-3B + LoRA decoder experiment |
-| `MediVLM_Colab_Inference.ipynb` | Single-image inference from a saved checkpoint |
-| `app.py` | Gradio app: MediVLM report, then AMG-RAG check (run from inside a MediVLM clone) |
-| `rag_module_source.py` | AMG-RAG module used by `app.py` |
-| `requirements.txt` | MediVLM dependencies |
-| `README.md` | Detailed MediVLM documentation |
-
-
-## Module 5: RadCheck RAG — Clinical Hallucination Detection
-
-**Why it's needed:** LLM-generated radiology reports can hallucinate findings not actually present in the image — sounding fluent but being clinically wrong. RadCheck RAG detects this.
-
-**Core idea:** Hallucination detection combines external evidence (is the finding medically documented?) with internal consistency checks (does it contradict another finding in the same report?).
-
-### Previous Architecture
-
-```
-Report → Clinical Claims Extraction → Construct MKG (Medical Knowledge Graph)
-       → DFS Traversal + Confidence Propagation → PubMed Grounding → Trust Score → Final Verdict
-```
-
-**Drawbacks:**
-- No explicit contradiction detection — only confidence propagation via BFS
-- PubMed grounding applied uniformly rather than selectively
-- No bidirectional relationship modeling between claims and KG nodes
-- Lacked a structured typical-vs-atypical decision path, increasing unnecessary computation
-
-### Current Architecture
-
-```
-Report → Clinical Claims Extraction → LLM Baseline Check (typical / atypical)
-       → [if atypical] PubMed Grounding → MKG Contradiction Engine
-       → Final Verdict: Hallucinated / Not Hallucinated (with confidence score)
-```
-
-**Pipeline stages:**
-1. **Clinical Claims Extraction** — extracts discrete claims (target + status) from the report.
-2. **LLM Baseline Check** — flags each claim as typical/atypical.
-3. **PubMed Grounding** — invoked only for atypical findings, reducing unnecessary computation.
-4. **MKG Contradiction Engine** — builds a Medical Knowledge Graph from the report's claims and runs contradiction detection.
-5. **Final Verdict** — per-claim PASS/FAIL with confidence score, plus an overall report-level verdict (e.g., "REPORT IS CLINICALLY CONSISTENT").
-
-### Architecture Comparison (System A vs. System B)
-
-| Metric | System A | System B |
+| Component | Repository Directory | Responsibility |
 |---|---|---|
-| Accuracy | 86.96% | 73.91% |
-| Precision | 91.67% | 76.92% |
-| Recall | 84.62% | 76.92% |
-| F1-score | 88.00% | 76.92% |
-| Specificity | 90.00% | 70.00% |
+| Image Enhancement | `Image_enhancement/` | Conditional image restoration and contrast enhancement |
+| Disease Detection | `DiseaseDetection/` | Multi-label thoracic disease classification |
+| Score-CAM | `ScoreCAM/` | Class-specific visual explanations |
+| MediVLM | `MediVLM/` | Vision-language report generation |
+| RadCheck RAG | `RadCheck RAG/` | Evidence-grounded report validation |
+| Complete Pipeline | `Complete Pipeline/` | Application integration and orchestration |
 
-*Note: Evaluation was performed on a curated set of manually labeled clinical statements rather than raw dataset reports, since MIMIC-CXR/IU-Xray reports have no ground-truth contradiction/hallucination labels needed to compute precision, recall, and F1.*
+### 5.1 Module Interaction
 
----
+```mermaid
+flowchart LR
+    A["Image Enhancement"] --> B["Disease Detection"]
+    B --> C["Score-CAM"]
+    A --> D["MediVLM"]
+    C --> E["Output Integration"]
+    D --> F["RadCheck RAG"]
+    F --> E
+    B --> E
 
-## Technical Enrichment — Courses (Ongoing)
+    classDef module fill:#DCEAFE,stroke:#4779B8,color:#172B3A
+    class A,B,C,D,F module
+    class E fill:#DDF2D5,stroke:#57A63A,color:#19351A
+```
 
-- **AI for Medical Diagnosis** — Coursera
-- **Generative AI with LLMs** — Coursera
-- **End-to-End Multimodal AI: Fine-Tuning, Fusion & MLOps** — Coursera
-
----
-
-## References
-
-1. **UniMIE:** Fei et al., *Communications Medicine*, 2025.
-2. **Zero-DCE:** Guo et al., *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*, 2020.
-3. **U-Net:** Ronneberger et al., *Medical Image Computing and Computer-Assisted Intervention (MICCAI)*, 2015.
-4. **MediVLM:** MediVLM: A Vision Language Model for Radiology Report Generation from Medical Images.
-5. **Agentic MKG:** Agentic Medical Knowledge Graphs Enhance Medical Question Answering: Bridging the Gap Between LLMs and Evolving Medical Knowledge.
-6. **CheXpert:** Irvin et al., *AAAI Conference on Artificial Intelligence*, 2019.
-7. **Score-CAM:** Score-CAM: Score-Weighted Visual Explanations for Convolutional Neural Networks.
+The enhancement and detection modules support the visual analysis workflow, while MediVLM and RadCheck RAG support report generation and verification. The Complete Pipeline module coordinates the components where integration is implemented.
 
 ---
 
-## Project Status
+## 6. Image Enhancement
 
-- Image Enhancement, Disease Detection, Explainability (Score-CAM), MediVLM report generation, and RadCheck RAG grounding modules have each been developed and evaluated individually.
-- Current focus: integrating the Image Enhancement module into the complete end-to-end pipeline and finalizing the shared evaluation protocol across all Disease Detection techniques.
+The image enhancement module investigates classical, unsupervised, diffusion-based, supervised, attention-based, and hybrid techniques for improving chest X-ray image quality.
+
+### 6.1 Evaluated Methods
+
+| Method | Category | Purpose |
+|---|---|---|
+| CLAHE | Classical image processing | Improves local contrast |
+| Zero-DCE | Unsupervised deep learning | Estimates pixel-wise enhancement curves |
+| UniMIE | Diffusion-based enhancement | Investigates generative image enhancement |
+| U-Net V3 | Supervised deep learning | Learns image restoration from synthetic degradation |
+| U-Net V3 + CLAHE | Hybrid | Combines learned restoration with contrast enhancement |
+| Attention U-Net | Attention-based deep learning | Uses attention mechanisms during reconstruction |
+| Attention U-Net + CLAHE | Proposed hybrid | Combines attention-based restoration with CLAHE |
+| Retinexformer-Lite | Transformer-inspired | Uses illumination-guided feature processing |
+| Retinexformer-Lite + CLAHE | Hybrid | Adds local contrast enhancement after restoration |
+
+### 6.2 Proposed Attention U-Net + CLAHE
+
+The proposed enhancement method combines an attention-based encoder-decoder network with CLAHE post-processing.
+
+The architecture incorporates:
+
+- Residual blocks for feature extraction and reconstruction.
+- CBAM for channel and spatial attention.
+- Attention gates for filtering encoder skip-connection features.
+- A decoder for reconstructing the enhanced image.
+- CLAHE for local contrast enhancement.
+
+#### Enhancement Workflow
+
+```mermaid
+flowchart TD
+    A["Input Chest X-ray"] --> B["Preprocessing<br/>Grayscale and Resize"]
+    B --> C["Residual Encoder"]
+    C --> D["CBAM Bottleneck"]
+    D --> E["Attention-Gated Decoder"]
+    E --> F["Reconstructed Image"]
+    F --> G["CLAHE Post-processing"]
+    G --> H["Enhanced Image"]
+    H --> I["Image Quality Evaluation"]
+```
+
+### 6.3 Image Quality Assessment
+
+The enhancement experiments use complementary metrics:
+
+| Metric | Interpretation |
+|---|---|
+| BRISQUE | No-reference perceptual quality estimate; lower is conventionally better |
+| Shannon Entropy | Intensity information content; higher does not necessarily mean better quality |
+| Sharpness | High-frequency detail estimate; can increase because of noise |
+| CII | Contrast improvement relative to the original |
+| EME | Local contrast assessment |
+| Average Rank | Aggregate ranking across selected metrics |
+
+### 6.4 Reported Results
+
+In the documented evaluation of 23 selected images, Attention U-Net + CLAHE achieved an average rank of 2.2 across eight methods, a mean entropy of 7.92, and a mean CII of 1.90.
+
+These results are preliminary. The selected evaluation subset and potential overlap with training images limit the strength of the conclusions.
+
+Further details, model implementations, and experimental results are documented in [`Image_enhancement/`](Image_enhancement/).
+
+---
+
+## 7. Disease Detection
+
+The disease detection module investigates multi-label classification of chest X-ray images.
+
+Unlike single-label classification, multi-label prediction allows a single radiograph to receive positive predictions for multiple findings.
+
+### 7.1 Target Findings
+
+The documented Stage 2 experiments focus on:
+
+- Cardiomegaly
+- Edema
+- Pleural Effusion
+
+### 7.2 Classification Workflow
+
+```mermaid
+flowchart TD
+    A["Input Chest X-ray"] --> B["Image Preprocessing"]
+    B --> C["Deep Learning Classifier"]
+    C --> D["Class Logits"]
+    D --> E["Sigmoid Probabilities"]
+    E --> F["Per-Disease Confidence Scores"]
+    F --> G["Threshold-Based Predictions"]
+```
+
+The classifier produces a confidence score for each target finding. Thresholds convert the scores into binary predictions.
+
+The confidence scores are model outputs and should not automatically be interpreted as calibrated probabilities of disease.
+
+### 7.3 Model Development
+
+The repository includes DenseNet121-based experiments and additional architectures, including CNN-Transformer and graph-based label reasoning approaches.
+
+The experiments investigate the effects of feature extraction, spatial relationships, label relationships, and training configurations on multi-label classification performance.
+
+The exact model configuration and reported metrics should be taken from the corresponding final notebook in `DiseaseDetection/`.
+
+### 7.4 Evaluation
+
+The disease detection experiments use metrics such as:
+
+- Precision
+- Recall / Sensitivity
+- F1 Score
+- ROC-AUC
+- Confusion Matrix
+- Bootstrap Confidence Intervals
+
+Patient-level separation between training, validation, and test partitions is essential to reduce leakage caused by multiple images from the same patient.
+
+Further details are documented in [`DiseaseDetection/`](DiseaseDetection/).
+
+---
+
+## 8. Explainability with Score-CAM
+
+Score-CAM is used to investigate which spatial regions contribute to a selected class prediction.
+
+The method generates class-specific activation maps by evaluating the model's responses to feature-map-derived activation masks.
+
+### 8.1 Processing Workflow
+
+```mermaid
+flowchart TD
+    A["Input Chest X-ray"] --> B["Trained Disease Classifier"]
+    B --> C["Select Target Disease"]
+    C --> D["Extract Convolutional Feature Maps"]
+    D --> E["Generate Activation Masks"]
+    E --> F["Evaluate Class Scores"]
+    F --> G["Compute Activation Weights"]
+    G --> H["Generate Class-Specific Saliency Map"]
+    H --> I["Overlay for Interpretation"]
+```
+
+### 8.2 Disease-Specific Explanations
+
+For a multi-label prediction, separate saliency maps can be generated for individual predicted findings.
+
+For example:
+
+| Output | Explanation |
+|---|---|
+| Disease Class 1 | Saliency map for the first selected class |
+| Disease Class 2 | Saliency map for the second selected class |
+| Disease Class 3 | Saliency map for the third selected class |
+
+The actual disease label associated with each map depends on the classifier's output classes.
+
+### 8.3 Interpretation
+
+Score-CAM maps provide visual information about regions associated with a model prediction. They do not prove that the model uses medically valid reasoning, and highlighted regions should not be interpreted as definitive lesion segmentation.
+
+Further implementation details are documented in [`ScoreCAM/`](ScoreCAM/).
+
+---
+
+## 9. Vision-Language Report Generation
+
+The MediVLM module investigates vision-language-based clinical text generation from chest X-ray inputs.
+
+The module is intended to connect image-level information with natural-language descriptions that can be passed to the report-validation stage.
+
+### 9.1 Processing Workflow
+
+```mermaid
+flowchart TD
+    A["Chest X-ray"] --> B["Image Preprocessing"]
+    B --> C["MediVLM"]
+    C --> D["Vision-Language Inference"]
+    D --> E["Generated Clinical Text"]
+    E --> F["RadCheck RAG"]
+```
+
+### 9.2 Role in ReXTrust
+
+MediVLM is responsible for generating text from visual input. RadCheck RAG performs the subsequent report-grounding and validation stage.
+
+Keeping these responsibilities separate allows the generated report to be evaluated independently of the mechanism used to validate its claims.
+
+### 9.3 Important Considerations
+
+Generated reports may omit findings, introduce unsupported statements, or misrepresent image content. A generated report must therefore not be treated as clinically verified merely because a vision-language model produced it.
+
+Implementation and setup details are maintained in [`MediVLM/`](MediVLM/).
+
+---
+
+## 10. RadCheck RAG Report Validation
+
+RadCheck RAG investigates the use of retrieval-augmented generation and evidence-grounding techniques to assess generated clinical reports.
+
+The objective is to compare report claims with retrieved medical information and identify statements that may require further verification.
+
+### 10.1 Validation Workflow
+
+```mermaid
+flowchart TD
+    A["Generated Clinical Report"] --> B["Report Claim Extraction"]
+    B --> C["Retrieve Relevant Medical Evidence"]
+    C --> D["Evidence and Claim Comparison"]
+    D --> E["Grounding and Consistency Assessment"]
+    E --> F["Validation Results"]
+    F --> G["Report with Validation Information"]
+```
+
+### 10.2 Responsibilities
+
+- Process generated report text.
+- Retrieve relevant supporting information from the configured knowledge source.
+- Assess whether report claims are supported by the retrieved evidence.
+- Identify claims that require further review.
+- Produce validation information for downstream output integration.
+
+### 10.3 Limitations
+
+Retrieval-augmented validation cannot guarantee that a report is factually correct or clinically complete. Results depend on the knowledge source, retrieval quality, claim extraction, and validation logic.
+
+The RadCheck module is documented in [`RadCheck RAG/`](RadCheck%20RAG/).
+
+---
+
+## 11. Structured Diagnostic Output
+
+The final stage consolidates the outputs produced by the individual modules.
+
+### 11.1 Output Components
+
+| Component | Description |
+|---|---|
+| Input / Enhanced Image | Original radiograph or its enhanced version |
+| Disease Predictions | Predicted target classes |
+| Confidence Scores | Model-generated scores for individual diseases |
+| Saliency Maps | Disease-specific Score-CAM explanations |
+| Generated Report | Clinical text produced by MediVLM |
+| Validation Information | Report-grounding and consistency results from RadCheck RAG |
+
+### 11.2 Output Assembly
+
+```mermaid
+flowchart TD
+    A["Image Enhancement Output"] --> F["Structured Output Assembly"]
+    B["Disease Predictions and Scores"] --> F
+    C["Disease-Specific Saliency Maps"] --> F
+    D["MediVLM Generated Report"] --> E["RadCheck Validation"]
+    E --> F
+
+    F --> G["Consolidated Diagnostic-Support Output"]
+    G --> H["Image"]
+    G --> I["Predictions and Scores"]
+    G --> J["Saliency Maps"]
+    G --> K["Report and Validation Information"]
+```
+
+The structured output is intended to improve traceability by presenting predictions alongside visual explanations and report-validation information.
+
+It is a research output, not an autonomous clinical diagnosis.
+
+---
+
+## 12. Repository Structure
+
+The repository is organized into modules corresponding to the major components of ReXTrust.
+
+```text
+VLIL-Team-95/
+│
+├── Complete Pipeline/
+│   └── Application integration and end-to-end workflow
+│
+├── DiseaseDetection/
+│   ├── Models/
+│   ├── dataset-loading.ipynb
+│   ├── diseasedetectiondensenet121.ipynb
+│   └── ReXTrust Stage 2 experiment notebooks
+│
+├── Image_enhancement/
+│   ├── results/
+│   ├── final-image-enhancement-with-attention.ipynb
+│   ├── final-image-enhancement.ipynb
+│   ├── final_image_enhancement_23_images.ipynb
+│   ├── image_enhancement_stage_1.ipynb
+│   ├── image_enhancement_unimie.ipynb
+│   ├── unet_xray_v3.pt
+│   └── zerodce_xray.pt
+│
+├── MediVLM/
+│   └── Vision-language model implementation and setup
+│
+├── RadCheck RAG/
+│   └── Retrieval, report grounding, and validation
+│
+├── ScoreCAM/
+│   └── Score-CAM explainability implementation
+│
+├── rextrust_architecture.png
+└── README.md
+```
+
+*Note: The directory descriptions are high-level summaries. Verify exact filenames and subdirectories against the current repository before treating this tree as exhaustive.*
+
+### Module Summary
+
+| Directory | Purpose |
+|---|---|
+| `Complete Pipeline/` | Main application and integration workflow |
+| `DiseaseDetection/` | Multi-label disease classification |
+| `Image_enhancement/` | Chest X-ray enhancement methods |
+| `MediVLM/` | Vision-language report generation |
+| `RadCheck RAG/` | Report grounding and validation |
+| `ScoreCAM/` | Disease-specific visual explainability |
+| `rextrust_architecture.png` | Overall system architecture diagram |
+| `README.md` | Project overview and documentation |
+
+---
+
+## 13. Technology Stack
+
+The project uses the following technologies across its modules. Exact dependencies vary by component.
+
+| Technology | Purpose |
+|---|---|
+| Python | Primary implementation language |
+| PyTorch | Deep-learning model development and inference |
+| Torchvision | Image transformations and pretrained models |
+| OpenCV | Image processing and enhancement |
+| NumPy | Numerical operations |
+| pandas | Metadata and tabular data processing |
+| scikit-learn | Evaluation metrics and classification analysis |
+| scikit-image | Image-quality assessment |
+| Matplotlib | Experimental visualization and analysis |
+| Jupyter Notebook | Model experimentation |
+| Vision-Language Models | Image-to-text generation |
+| Retrieval-Augmented Generation | Evidence retrieval and report validation |
+
+The installation requirements for each module should be followed separately because the complete pipeline may require different package versions or hardware configurations.
+
+---
+
+## 14. Installation and Setup
+
+### 14.1 Prerequisites
+
+- Python version compatible with the selected module dependencies.
+- Access to the required dataset and pretrained checkpoints.
+- Git.
+- Jupyter Notebook or the execution environment specified by each module.
+- A CUDA-capable GPU for training or GPU-dependent inference, where required.
+
+### 14.2 Clone the Repository
+
+```bash
+git clone https://github.com/SuryaSampreeth/VLIL-Team-95.git
+cd VLIL-Team-95
+```
+
+### 14.3 Create a Virtual Environment
+
+**Windows PowerShell**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+**Linux / macOS**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 14.4 Install Module Dependencies
+
+Install the dependencies required by the module you intend to execute.
+
+For example, the image-enhancement experiments use packages such as:
+
+```bash
+python -m pip install numpy pandas scipy scikit-image scikit-learn matplotlib opencv-python-headless Pillow tqdm jupyter
+```
+
+Install PyTorch and Torchvision using the official installation selector:
+
+https://pytorch.org/get-started/locally/
+
+Other modules may require additional packages, model checkpoints, retrieval databases, or model-specific configuration. Consult the README and dependency files inside each module before running it.
+
+**Note:** The root-level installation command is not a substitute for the individual modules' requirements. Do not assume that one Python environment will satisfy every dependency without version conflicts.
+
+---
+
+## 15. Execution Workflow
+
+The exact commands depend on the current implementation of each module. The recommended high-level execution sequence is:
+
+1. Configure the dataset and model paths.
+2. Run the image-quality assessment and enhancement workflow.
+3. Run multi-label disease detection on the selected image.
+4. Generate Score-CAM maps for the target disease classes.
+5. Generate the vision-language report using MediVLM.
+6. Pass the report to RadCheck RAG for grounding and validation.
+7. Assemble the available outputs into the structured application response.
+
+### Execution Flow
+
+```mermaid
+flowchart TD
+    A["Configure Environment and Data"] --> B["Run Image Enhancement"]
+    B --> C["Run Disease Detection"]
+    C --> D["Generate Score-CAM Maps"]
+    B --> E["Generate MediVLM Report"]
+    E --> F["Validate Report with RadCheck RAG"]
+    D --> G["Integrate Outputs"]
+    F --> G
+    C --> G
+    G --> H["Structured Result"]
+```
+
+Before executing the full pipeline, verify that:
+
+- Dataset paths resolve correctly.
+- Required model checkpoints are available.
+- Model input dimensions match preprocessing.
+- The classifier's output class ordering is consistent with Score-CAM.
+- The report-validation component can access its configured knowledge source.
+- Each module returns outputs in the format expected by the integration layer.
+
+---
+
+## 16. Evaluation Strategy
+
+ReXTrust should be evaluated at both the individual-module level and the integrated-pipeline level.
+
+| Module | Evaluation Focus |
+|---|---|
+| Image Enhancement | BRISQUE, entropy, sharpness, CII, EME, structural preservation |
+| Disease Detection | Precision, recall, F1 score, ROC-AUC, calibration |
+| Score-CAM | Class-specific consistency and expert assessment |
+| MediVLM | Report completeness, factual consistency, and unsupported claims |
+| RadCheck RAG | Retrieval relevance, claim-grounding accuracy, and verification errors |
+| Complete Pipeline | Integration correctness, latency, failure handling, and output consistency |
+
+### Recommended Experimental Principles
+
+- Use patient-level data separation where patient identifiers are available.
+- Keep the test set independent of training and model selection.
+- Report class-specific results rather than relying only on aggregate metrics.
+- Evaluate confidence calibration where probability interpretations are required.
+- Distinguish model-generated claims from independently validated evidence.
+- Evaluate the effect of image enhancement on downstream disease detection.
+- Document failure cases and uncertainty.
+- Avoid interpreting saliency maps as proof of correct clinical reasoning.
+
+The enhancement experiments have identified potential training-evaluation overlap and evaluation-subset selection bias. These issues should be resolved before using the recorded results to make strong claims about generalization.
+
+---
+
+## 17. Limitations
+
+The current research pipeline has limitations that should be considered when interpreting its outputs.
+
+### 17.1 Image Enhancement
+
+- Enhancement metrics do not directly measure clinical usefulness.
+- Increased sharpness or entropy can result from noise or artificial edges.
+- Learned models may modify subtle structures.
+- Some evaluation subsets may overlap with training data.
+
+### 17.2 Disease Detection
+
+- Predictions depend on the training data, label definitions, and model configuration.
+- Class confidence scores may not be calibrated probabilities.
+- Performance may change across institutions, scanners, and patient populations.
+
+### 17.3 Explainability
+
+- Score-CAM highlights regions associated with model scores but does not establish causal reasoning.
+- Saliency maps may be unstable or medically misleading.
+
+### 17.4 Report Generation and Validation
+
+- Vision-language models may generate incomplete or unsupported claims.
+- Retrieval systems may fail to retrieve relevant evidence.
+- A grounded claim is not automatically a correct diagnosis.
+- Validation performance depends on the quality of the retrieval corpus and verification logic.
+
+### 17.5 Integrated System
+
+- Errors in upstream stages can propagate to downstream components.
+- A structured output does not guarantee clinical correctness.
+- End-to-end clinical utility and safety have not been established.
+
+---
+
+## 18. Future Work
+
+Potential extensions include:
+
+- Independent patient-level evaluation across all learned models.
+- External validation on chest X-ray datasets from different institutions.
+- Improved medical-domain image-quality assessment.
+- Evaluation of enhancement effects on disease-classification performance.
+- More rigorous assessment of Score-CAM explanations.
+- Improved report-grounding benchmarks and error analysis.
+- Confidence calibration and uncertainty estimation.
+- Automated pipeline monitoring, logging, and failure recovery.
+- End-to-end latency and resource-utilization analysis.
+- Expert evaluation of enhanced images, model predictions, and generated reports.
+
+---
+
+## 19. Responsible Use
+
+ReXTrust is intended for **research and educational purposes only**.
+
+The system must not be used as a substitute for professional medical assessment. Enhanced images, model predictions, saliency maps, generated reports, and report-validation outputs may contain errors.
+
+The project has not established clinical safety, diagnostic effectiveness, or regulatory approval. Any potential clinical application requires independent external validation, appropriate clinical oversight, privacy and security review, and compliance with applicable regulations.
+
+Use datasets according to their access and usage terms. Do not commit patient-identifying information, credentials, API keys, or access tokens to the repository.
+
+---
+
+## 20. Acknowledgements
+
+We acknowledge the researchers and open-source communities whose work supports the development of medical image processing, deep-learning classification, attention mechanisms, explainability, vision-language modelling, and retrieval-augmented generation.
+
+We also acknowledge the contributors to the CheXpert dataset and the tools used across the project.
+
+---
+
+## 21. References
+
+1. Irvin, J. et al. "CheXpert: A Large Chest Radiograph Dataset with Uncertainty Labels and Expert Comparison." AAAI, 2019.
+2. Zuiderveld, K. "Contrast Limited Adaptive Histogram Equalization." *Graphics Gems IV*, 1994.
+3. Guo, C. et al. "Zero-Reference Deep Curve Estimation for Low-Light Image Enhancement." CVPR, 2020.
+4. Ronneberger, O., Fischer, P., and Brox, T. "U-Net: Convolutional Networks for Biomedical Image Segmentation." MICCAI, 2015.
+5. Oktay, O. et al. "Attention U-Net: Learning Where to Look for the Pancreas." MIDL, 2018.
+6. Woo, S. et al. "CBAM: Convolutional Block Attention Module." ECCV, 2018.
+7. He, K. et al. "Deep Residual Learning for Image Recognition." CVPR, 2016.
+8. Cai, Y. et al. "Retinexformer: One-stage Retinex-based Transformer for Low-light Image Enhancement." ICCV, 2023.
+9. Dhariwal, P. and Nichol, A. "Diffusion Models Beat GANs on Image Synthesis." NeurIPS, 2021.
+10. Mittal, A., Moorthy, A. K., and Bovik, A. C. "No-Reference Image Quality Assessment in the Spatial Domain." IEEE Transactions on Image Processing, 2012.
+11. Wang, Z. et al. "Image Quality Assessment: From Error Visibility to Structural Similarity." IEEE Transactions on Image Processing, 2004.
+
+---
+
+**ReXTrust — Explainable AI for Chest X-ray Analysis**
+
+*Research and educational use only.*
