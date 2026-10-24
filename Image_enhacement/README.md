@@ -1,112 +1,128 @@
 
-# ReXTrust: Chest X-ray Image Enhancement
+# ReXTrust — Chest X-ray Image Enhancement
 
-**Conditional, Attention-Based Enhancement of Chest Radiographs: A Comparative Study of Classical, Learned, and Hybrid Methods**
+### A Comparative Study of Classical, Deep Learning, Attention-Based, and Hybrid Enhancement Methods
 
-**Technologies:** Python · PyTorch · OpenCV · NumPy · scikit-image · Jupyter Notebook
-
-**Project:** ReXTrust — VLIL Team 95  
-**Institution:** Amrita Vishwa Vidyapeetham, Department of Computer Science and Engineering
-
----
-
-## Table of Contents
-
-1. [Abstract](#abstract)
-2. [Project Overview](#project-overview)
-3. [Problem Statement](#problem-statement)
-4. [Objectives](#objectives)
-5. [Dataset](#dataset)
-6. [Enhancement Methods](#enhancement-methods)
-7. [Proposed Method](#proposed-method-attention-u-net--clahe)
-8. [Training Configuration](#training-configuration)
-9. [Evaluation Metrics](#evaluation-metrics)
-10. [Experimental Results](#experimental-results)
-11. [Discussion](#discussion)
-12. [Limitations and Data Leakage Audit](#limitations-and-data-leakage-audit)
-13. [Repository Structure](#repository-structure)
-14. [Installation](#installation)
-15. [Execution](#execution)
-16. [Reproducibility](#reproducibility)
-17. [Future Work](#future-work)
-18. [Responsible Use](#responsible-use)
-19. [Team and Acknowledgements](#team-and-acknowledgements)
-20. [References](#references)
+**Project:** ReXTrust  
+**Team:** VLIL Team 95  
+**Institution:** Amrita Vishwa Vidyapeetham, Coimbatore  
+**Domain:** Medical Image Processing · Deep Learning · Computer Vision
 
 ---
 
-## Abstract
+## 1. Abstract
 
-Chest X-ray images can suffer from low contrast, noise, and uneven illumination, potentially reducing the visibility of anatomical structures and affecting downstream medical-image analysis.
+Chest X-ray images are susceptible to low contrast, noise, and uneven illumination, which can affect the visibility of anatomical structures and the performance of downstream medical-image analysis systems. This project investigates image enhancement methods that aim to improve visual quality while minimizing the loss of diagnostically relevant information.
 
-This module of **ReXTrust** investigates classical, unsupervised, diffusion-based, supervised, attention-based, and hybrid image enhancement techniques using the CheXpert chest radiograph dataset.
+The proposed work compares classical image processing, unsupervised enhancement, diffusion-based methods, supervised neural networks, attention-based architectures, and hybrid enhancement pipelines using the CheXpert chest radiograph dataset.
 
-The evaluated approaches include CLAHE, Zero-DCE, UniMIE, U-Net V3, Attention U-Net with CBAM, Retinexformer-Lite, and combinations of neural-network enhancement with CLAHE.
+The principal contribution is an **Attention U-Net + CLAHE hybrid pipeline** that combines learned image restoration with contrast-limited adaptive histogram equalization. The Attention U-Net incorporates residual blocks, a Convolutional Block Attention Module (CBAM), and attention-gated skip connections.
 
-The proposed **Attention U-Net + CLAHE** pipeline combines learned image restoration with local contrast enhancement. The Attention U-Net uses residual blocks, a Convolutional Block Attention Module (CBAM), and attention-gated skip connections to refine image features.
+Performance is evaluated using BRISQUE, Shannon entropy, Laplacian-variance sharpness, Contrast Improvement Index (CII), and Enhancement Measure Evaluation (EME).
 
-Enhancement quality is assessed using BRISQUE, Shannon entropy, Laplacian-variance sharpness, Contrast Improvement Index (CII), and Enhancement Measure Evaluation (EME).
+In the documented evaluation of 23 selected images, Attention U-Net + CLAHE achieved an average rank of **2.2 across eight methods**, a mean entropy of **7.92**, and a mean CII of **1.90**. These results are preliminary because of evaluation-subset selection and potential overlap between training and evaluation images. Independent, patient-level validation is required before drawing general conclusions.
 
-In the reported evaluation of 23 selected low-quality images, Attention U-Net + CLAHE achieved an average rank of **2.2 across eight methods**, the highest mean entropy of **7.92**, and the highest mean CII of **1.90**.
+---
 
-These findings are preliminary. The evaluation subset was selected using two of the metrics later used for evaluation, and the experiments have identified potential training-evaluation overlap. The reported results therefore require confirmation on a fixed, independent test set.
+## 2. Project Overview
 
-## Project Overview
+### 2.1 Problem Statement
 
-ReXTrust is an explainable chest X-ray analysis project that investigates image enhancement as an initial stage in a larger medical-image analysis pipeline.
+Chest X-ray images may exhibit poor contrast, noise, and uneven illumination. Classical enhancement methods can amplify noise, while deep-learning models may smooth fine structures or introduce artifacts.
 
-This repository focuses on improving image visibility while attempting to preserve fine anatomical structures and medical devices that may be important for downstream disease detection.
+The objective is to develop and evaluate enhancement techniques that balance:
 
-The image enhancement module investigates three key challenges:
+- Contrast and visibility improvement.
+- Noise reduction and structural preservation.
+- Image sharpness and information content.
+- Computational efficiency.
+- Reliability of downstream medical-image analysis.
 
-- Improving local contrast and visibility.
-- Reducing degradation without excessively smoothing important structures.
-- Evaluating image quality using multiple complementary metrics.
+### 2.2 Project Objectives
 
-### Role in the ReXTrust Pipeline
+1. Implement and compare multiple chest X-ray enhancement techniques.
+2. Develop an attention-based U-Net architecture with residual blocks and CBAM.
+3. Investigate hybrid pipelines combining neural restoration with CLAHE.
+4. Evaluate enhanced images using complementary image-quality metrics.
+5. Examine preservation of fine structures, including support-device edges.
+6. Compare enhancement quality across a common experimental subset.
+7. Identify potential data leakage and methodological limitations.
 
-| Stage | Component | Scope |
-|---|---|---|
-| 1 | Image quality assessment | BRISQUE and entropy-based screening |
-| 2 | Image enhancement | Attention U-Net + CLAHE and comparative methods |
-| 3 | Disease detection | Separate `DiseaseDetection/` module |
-| 4 | Per-disease saliency | Score-CAM pipeline stage |
-| 5 | Report generation and verification | RadCheck pipeline stage |
+### 2.3 Research Questions
 
-This repository primarily implements and evaluates the first two stages.
+| ID | Research Question |
+|---|---|
+| RQ1 | Does combining neural restoration with CLAHE improve enhancement quality compared with either method alone? |
+| RQ2 | Do attention mechanisms improve the performance of a conventional U-Net architecture? |
+| RQ3 | How do classical, unsupervised, diffusion-based, and learned enhancement approaches compare? |
+| RQ4 | Are fine image structures preserved after enhancement? |
+| RQ5 | How reliable are the observed improvements under an independent evaluation protocol? |
 
-## Problem Statement
+---
 
-Chest X-ray images may contain low contrast, noise, and uneven illumination. Direct contrast enhancement can amplify noise, while learned restoration networks may blur edges or modify subtle image details.
+## 3. System Architecture
 
-The objective is to develop and compare enhancement methods that balance:
+The enhancement module is designed to operate as an image-quality assessment and enhancement stage within the broader ReXTrust pipeline.
 
-- Image clarity.
-- Local contrast.
-- Sharpness.
-- Information content.
-- Preservation of fine structures.
+### 3.1 Conditional Enhancement Workflow
 
-The project also investigates whether combining neural-network restoration with CLAHE improves image quality compared with either technique alone.
+```mermaid
+flowchart TD
+    A["Input Chest X-ray"] --> B["Image Preprocessing"]
+    B --> C["Image Quality Assessment"]
+    C --> D{"Requires Enhancement?"}
 
-## Objectives
+    D -->|Yes| E["Attention U-Net"]
+    E --> F["CLAHE Post-processing"]
+    F --> G["Enhanced Image"]
 
-- Implement and compare classical and deep-learning-based enhancement techniques.
-- Develop an attention-based U-Net using residual blocks, CBAM, and attention gates.
-- Investigate hybrid enhancement pipelines that combine learned restoration and CLAHE.
-- Evaluate image quality using five complementary metrics.
-- Compare methods using average metric rankings.
-- Investigate preservation of support-device edges.
-- Examine the computational cost of different architectures.
-- Identify data leakage and evaluation biases before drawing conclusions.
+    D -->|No| H["Original Image"]
+    H --> I["Output Image"]
+    G --> I
 
-## Dataset
+    I --> J["Downstream Disease Detection"]
+```
 
-The project uses the **CheXpert** chest radiograph dataset.
+The quality-assessment stage uses BRISQUE and entropy thresholds in the documented implementation. The decision thresholds are experimental and have not been clinically validated.
 
-The notebook loads image metadata from `train.csv` and optionally references `valid.csv`.
+### 3.2 Enhancement Module Workflow
 
-### Dataset Configuration
+```mermaid
+flowchart LR
+    A["CheXpert Dataset"] --> B["Preprocessing"]
+    B --> C["Enhancement Methods"]
+
+    C --> D["CLAHE"]
+    C --> E["Zero-DCE"]
+    C --> F["UniMIE"]
+    C --> G["U-Net V3"]
+    C --> H["Attention U-Net"]
+    C --> I["Retinexformer-Lite"]
+
+    G --> J["Hybrid Enhancement"]
+    H --> J
+    I --> J
+
+    D --> K["Quality Evaluation"]
+    E --> K
+    F --> K
+    J --> K
+
+    K --> L["Metric Comparison"]
+    L --> M["Average Ranking"]
+```
+
+---
+
+## 4. Dataset and Preprocessing
+
+### 4.1 Dataset
+
+The experiments use the **CheXpert chest radiograph dataset**, which contains chest X-ray images and associated radiology labels.
+
+The notebooks load image metadata from `train.csv` and optionally reference `valid.csv`.
+
+### 4.2 Dataset Configuration
 
 ```python
 BASE_PATH = "/kaggle/input/datasets/ashery/chexpert"
@@ -115,298 +131,255 @@ TRAIN_CSV = f"{BASE_PATH}/train.csv"
 VALID_CSV = f"{BASE_PATH}/valid.csv"
 ```
 
-Update `BASE_PATH` according to the location of the dataset in your environment.
+Update `BASE_PATH` according to the environment in which the notebooks are executed.
 
-### Image Preprocessing
+### 4.3 Preprocessing Pipeline
 
-The documented preprocessing workflow includes:
+```mermaid
+flowchart TD
+    A["Load Image and Metadata"] --> B["Read Chest X-ray"]
+    B --> C["Convert to Grayscale"]
+    C --> D["Resize to 256 × 256"]
+    D --> E["Replicate to Three Channels"]
+    E --> F["Model Input"]
+```
 
-1. Loading image paths and metadata.
-2. Converting radiographs to grayscale.
-3. Resizing images to 256 × 256 pixels.
-4. Replicating grayscale images across three channels for neural-network input.
-5. Applying enhancement and degradation operations as required by each experiment.
+The documented preprocessing workflow converts images to grayscale, resizes them to 256 × 256 pixels, and replicates the grayscale channel for neural networks expecting three-channel inputs.
 
-### Experimental Subsets
+### 4.4 Experimental Subsets
 
 | Subset | Number of Images | Purpose |
 |---|---:|---|
-| Random sample | 50 | Initial image-quality screening |
-| Flagged low-quality subset | 23 | Multi-image comparison |
-| Single-image comparison | 1 | Detailed comparison of ten configurations |
-| Support-device example | 1 | Fine-edge preservation assessment |
+| Initial random sample | 50 | Quality screening |
+| Flagged low-quality subset | 23 | Multi-image evaluation |
+| Single-image subset | 1 | Detailed ten-method comparison |
+| Support-device example | 1 | Edge-preservation assessment |
 
-The 23-image subset was selected using BRISQUE and entropy thresholds. This introduces potential selection bias because these metrics were subsequently used to evaluate enhancement quality.
+The 23-image subset was selected using BRISQUE and entropy thresholds. Because these metrics are also used during evaluation, the selection procedure introduces potential bias.
 
-### Training Data
+### 4.5 Quality Screening
 
-| Model | Training Images | Training / Validation Split |
-|---|---:|---|
-| Zero-DCE | 2,000 | Training pool |
-| U-Net V3 | 2,000 | 1,900 / 100 |
-| Attention U-Net | 500 | 400 / 100 |
-| Retinexformer-Lite | 1,999 | 1,799 / 200 |
+The notebook flags an image for enhancement when either condition is satisfied:
 
-These counts describe the documented experiments and should be verified against the notebook configuration used for a final reproduction.
+```text
+BRISQUE > 5.0 OR Entropy < 7.95
+```
 
-## Enhancement Methods
+These are experimental thresholds rather than clinically established criteria.
 
-The project evaluates the following methods and configurations.
+---
 
-| Method | Category | Main Approach |
+## 5. Enhancement Methods
+
+| Method | Category | Description |
 |---|---|---|
-| Original | Reference | Unprocessed chest X-ray |
-| CLAHE | Classical | Local histogram equalization |
-| UniMIE | Diffusion-based | Diffusion-model image enhancement |
+| Original | Reference | Unprocessed input image |
+| CLAHE | Classical image processing | Local histogram equalization with contrast limiting |
 | Zero-DCE | Unsupervised deep learning | Pixel-wise enhancement curve estimation |
+| UniMIE | Diffusion-based enhancement | Diffusion-model-based image enhancement |
 | U-Net V3 | Supervised deep learning | Encoder-decoder restoration network |
 | U-Net V3 + CLAHE | Hybrid | Neural restoration followed by CLAHE |
 | Attention U-Net | Attention-based deep learning | Residual blocks, CBAM, and attention gates |
 | Attention U-Net + CLAHE | Proposed hybrid | Attention-based restoration followed by CLAHE |
-| Retinexformer-Lite | Transformer-inspired | Illumination-guided attention |
-| Retinexformer-Lite + CLAHE | Hybrid | Illumination-aware restoration followed by CLAHE |
+| Retinexformer-Lite | Transformer-inspired | Illumination-guided feature processing |
+| Retinexformer-Lite + CLAHE | Hybrid | Illumination-aware enhancement followed by CLAHE |
 
-### 1. CLAHE
+### 5.1 CLAHE
 
 Contrast Limited Adaptive Histogram Equalization enhances local contrast by equalizing intensity distributions within image tiles while limiting excessive contrast amplification.
 
-**Advantages:**
-- Does not require model training.
-- Computationally efficient.
-- Improves local contrast and visibility.
+It is computationally efficient and does not require training. However, it may amplify noise or produce excessive local contrast.
 
-**Limitations:**
-- May amplify noise.
-- Can produce excessive local contrast.
-- Does not perform learned image restoration.
+### 5.2 Zero-DCE
 
-### 2. UniMIE
+Zero-DCE estimates pixel-wise enhancement curves using a lightweight convolutional neural network.
 
-UniMIE is used for diffusion-based enhancement experiments with the guided-diffusion implementation and a pretrained 256 × 256 unconditional diffusion checkpoint.
+The implementation uses an unsupervised training approach with losses associated with spatial consistency, exposure control, color constancy, and illumination smoothness.
 
-Diffusion-based enhancement can produce visually different outputs, but the generative process may alter fine image details.
+### 5.3 UniMIE
 
-The documented inference time is approximately 35–40 seconds per image on a Tesla T4 GPU.
+UniMIE is used for diffusion-based enhancement experiments with a pretrained diffusion checkpoint and the guided-diffusion implementation.
 
-### 3. Zero-DCE
+Generative enhancement can modify fine details, so its outputs require careful visual and quantitative assessment.
 
-Zero-DCE estimates pixel-wise enhancement curves using a lightweight convolutional network.
+### 5.4 U-Net V3
 
-The implementation trains without paired clean-target images and uses loss components associated with:
+U-Net V3 uses an encoder-decoder architecture with skip connections. It is trained to map synthetically degraded images to CLAHE-generated targets.
 
-- Spatial consistency.
-- Exposure control.
-- Color constancy.
-- Illumination smoothness.
+Its training objective combines L1 reconstruction loss, SSIM-based structural loss, and Laplacian edge loss.
 
-The experiment uses 2,000 CheXpert images. Its exposure and regularization settings were adjusted to reduce excessive brightening and preserve image information.
+Because the targets are generated using CLAHE, the network learns the characteristics of that target-generation procedure rather than a verified ideal clinical image.
 
-### 4. U-Net V3
+### 5.5 Retinexformer-Lite
 
-U-Net V3 uses an encoder-decoder architecture with skip connections.
+Retinexformer-Lite is a simplified Retinexformer-inspired architecture that uses illumination-guided multi-head self-attention.
 
-The model learns to map synthetically degraded inputs toward CLAHE-generated target images.
+An illumination estimator generates a light map that modulates feature processing. The implementation is an adaptation, not an exact reproduction of the original Retinexformer architecture.
 
-The training loss combines:
+---
 
-- L1 reconstruction loss.
-- SSIM-based structural loss.
-- Laplacian edge loss.
+## 6. Proposed Method: Attention U-Net + CLAHE
 
-Because CLAHE generates the target images, the model learns to approximate that target-generation procedure. These targets are not verified clinically ideal images.
+### 6.1 Methodology
 
-### 5. U-Net V3 + CLAHE
+The proposed hybrid approach combines learned restoration with classical contrast enhancement.
 
-This hybrid method first applies the trained U-Net V3 model and then applies CLAHE to improve local contrast.
+The Attention U-Net reconstructs image features using residual blocks, channel and spatial attention, and attention-gated skip connections. CLAHE is then applied to improve local contrast in the network output.
 
-The objective is to reduce some noise before increasing contrast.
+### 6.2 Detailed Architecture
 
-### 6. Attention U-Net with CBAM
+```mermaid
+flowchart TD
+    A["Input Image<br/>256 × 256 × 3"] --> B["Encoder 1<br/>32 Channels"]
+    B --> C["Encoder 2<br/>64 Channels"]
+    C --> D["Encoder 3<br/>128 Channels"]
+    D --> E["Encoder 4<br/>256 Channels"]
+    E --> F["Bottleneck<br/>512 Channels + CBAM"]
 
-The attention-based U-Net combines residual feature extraction with channel and spatial attention.
+    F --> G["Decoder 4<br/>Attention Gate + ResBlock"]
+    G --> H["Decoder 3<br/>Attention Gate + ResBlock"]
+    H --> I["Decoder 2<br/>Attention Gate + ResBlock"]
+    I --> J["Decoder 1<br/>Attention Gate + ResBlock"]
 
-Its main components are:
+    B -.-> G
+    C -.-> H
+    D -.-> I
+    E -.-> J
 
-- Four encoder stages.
-- Residual blocks.
-- CBAM at the bottleneck.
-- Attention gates on skip connections.
-- Four decoder stages.
-- A final convolution and sigmoid output.
+    J --> K["Output Convolution + Sigmoid"]
+    K --> L["CLAHE"]
+    L --> M["Final Enhanced Image"]
+```
 
-This design attempts to select relevant feature channels and spatial regions while reconstructing the enhanced image.
+### 6.3 Architecture Components
 
-### 7. Retinexformer-Lite
-
-Retinexformer-Lite is a simplified Retinexformer-inspired architecture that incorporates Illumination-Guided Multi-head Self-Attention (IG-MSA).
-
-An illumination estimator predicts a light map, which is used to modulate feature processing so that bright and dark regions can be treated differently.
-
-This implementation is an adaptation and should not be considered an exact reproduction of the original Retinexformer architecture.
-
-## Proposed Method: Attention U-Net + CLAHE
-
-The proposed hybrid method combines learned image restoration and classical contrast enhancement.
-
-### Architecture
-
-| Component | Configuration |
+| Component | Role |
 |---|---|
-| Input | Grayscale chest X-ray replicated to three channels |
+| Residual blocks | Learn feature corrections and support gradient propagation |
+| Encoder | Extract hierarchical image features |
+| CBAM | Apply channel and spatial attention at the bottleneck |
+| Attention gates | Filter encoder features before skip-connection fusion |
+| Decoder | Reconstruct higher-resolution image features |
+| Output convolution | Produce the restored image |
+| CLAHE | Enhance local contrast after neural restoration |
+
+### 6.4 Model Specifications
+
+| Parameter | Value |
+|---|---|
 | Input resolution | 256 × 256 |
-| Encoder | Four residual feature-extraction stages |
-| Encoder channels | 32, 64, 128, 256 |
-| Bottleneck | 512 channels with CBAM |
-| Decoder | Four attention-gated reconstruction stages |
-| Output | Three-channel enhanced image |
+| Input channels | 3 |
+| Encoder stages | 4 |
+| Bottleneck channels | 512 |
+| Attention mechanism | CBAM and attention gates |
+| Trainable parameters | 8,235,421 |
+| Float32 model size | Approximately 31.42 MB |
 | Post-processing | CLAHE |
-| Parameters | 8,235,421 |
-| Model size | Approximately 31.42 MB in float32 |
 
-### Processing Pipeline
+### 6.5 Hybrid Processing Flow
 
-```text
-Input Chest X-ray
-        |
-        v
-Grayscale Conversion and Resizing
-        |
-        v
-Residual Encoder
-        |
-        v
-CBAM Bottleneck
-        |
-        v
-Attention-Gated Decoder
-        |
-        v
-Reconstructed Image
-        |
-        v
-CLAHE Post-Processing
-        |
-        v
-Final Enhanced Image
-        |
-        v
-Image Quality Evaluation
+```mermaid
+flowchart LR
+    A["Original X-ray"] --> B["Attention U-Net"]
+    B --> C["Learned Restoration"]
+    C --> D["CLAHE"]
+    D --> E["Enhanced X-ray"]
+    E --> F["Quality Evaluation"]
+
+    F --> G["BRISQUE"]
+    F --> H["Entropy"]
+    F --> I["Sharpness"]
+    F --> J["CII and EME"]
 ```
 
-### Component Roles
+The proposed design aims to combine learned feature reconstruction with controlled local contrast enhancement. Its effectiveness must be established through independent evaluation rather than assumed from the architecture alone.
 
-| Component | Function |
-|---|---|
-| Residual blocks | Learn feature corrections and support optimization |
-| Channel attention | Reweight feature channels |
-| Spatial attention | Emphasize relevant spatial regions |
-| Attention gates | Filter skip-connection features using decoder information |
-| CLAHE | Improve local contrast in the reconstructed image |
+---
 
-The network uses residual blocks to extract features, CBAM to refine bottleneck representations, and attention gates to filter encoder features before they are combined with decoder features.
+## 7. Training Configuration
 
-CLAHE is applied after neural restoration to improve local contrast.
+### 7.1 Synthetic Training Data
 
-## Training Configuration
+The supervised models use synthetically degraded images as inputs and CLAHE-generated images as targets.
 
-The supervised models use synthetic degradation to generate training inputs.
+```mermaid
+flowchart TD
+    A["Original Training Image"] --> B["CLAHE Target Generation"]
+    A --> C["Synthetic Degradation"]
+    C --> D["Neural Network"]
+    D --> E["Predicted Image"]
 
-### Training Pair Generation
+    B --> F["Loss Calculation"]
+    E --> F
 
-```text
-Original CheXpert Image
-          |
-          +--------------------------+
-          |                          |
-          v                          v
-CLAHE Target Image             Synthetic Degradation
-                               Gaussian Noise + Blur
-          |                          |
-          |                          v
-          |                    Neural Network
-          |                          |
-          +------------+-------------+
-                       |
-                       v
-                 Training Loss
+    F --> G["Backpropagation"]
+    G --> H["Model Parameter Update"]
 ```
 
-### Synthetic Degradation
+The documented degradation configuration includes Gaussian noise and Gaussian blur.
 
-The documented configuration includes:
-
-- Gaussian noise with standard deviation sampled from 8 to 25.
-- Gaussian blur kernel sizes of 3 or 5.
-- Blur standard deviation sampled from 0.3 to 1.2.
-- CLAHE-generated targets with clip limit 3.0 and an 8 × 8 tile grid.
-
-### Model Training Configuration
+### 7.2 Training Settings
 
 | Setting | U-Net V3 | Attention U-Net | Retinexformer-Lite |
 |---|---|---|---|
-| Input resolution | 256 × 256 | 256 × 256 | 256 × 256 |
 | Optimizer | Adam | Adam | Adam |
 | Learning rate | 3 × 10⁻⁴ | 3 × 10⁻⁴ | 3 × 10⁻⁴ |
-| Loss | L1 + SSIM + Laplacian | L1 + SSIM + Laplacian | Same + illumination smoothness |
 | Maximum epochs | 60 | 60 | 60 |
 | Batch size | 8 | 8 | 8 |
 | Training images | 1,900 | 400 | 1,799 |
 | Validation images | 100 | 100 | 200 |
-| Learning-rate scheduling | ReduceLROnPlateau | ReduceLROnPlateau | ReduceLROnPlateau |
+| Loss | L1 + SSIM + Laplacian | L1 + SSIM + Laplacian | Same + illumination smoothness |
+| Scheduler | ReduceLROnPlateau | ReduceLROnPlateau | ReduceLROnPlateau |
 
-The reported hardware is a Tesla T4 GPU with approximately 15.6 GB of memory.
+The documented experiments used a Tesla T4 GPU. Training settings and data splits should be verified against the notebook before reproducing results.
 
-## Evaluation Metrics
+---
 
-The project uses five complementary image-quality metrics.
+## 8. Evaluation Metrics
+
+The project uses five complementary metrics because enhancement quality cannot be characterized reliably by a single numerical measure.
 
 | Metric | Preferred Direction | Purpose |
 |---|---|---|
 | BRISQUE | Lower | Estimates perceptual image quality |
-| Shannon Entropy | Higher, with caution | Measures intensity information content |
+| Shannon entropy | Higher, with caution | Measures image intensity information content |
 | Sharpness | Higher, with caution | Measures high-frequency image detail |
 | CII | Higher | Measures contrast improvement relative to the original |
-| EME | Higher, with caution | Measures local contrast characteristics |
+| EME | Higher, with caution | Evaluates local contrast characteristics |
 
-### BRISQUE
+### 8.1 BRISQUE
 
-BRISQUE is a no-reference image-quality metric. Lower values conventionally indicate better perceptual quality.
+BRISQUE is a no-reference perceptual quality metric. Its interpretation on chest X-rays is limited because it is based on natural-image statistics.
 
-However, it was developed around natural-image statistics, and its reliability on medical radiographs is limited.
+### 8.2 Shannon Entropy
 
-### Shannon Entropy
+Entropy measures the information content of the image intensity distribution. Higher entropy does not necessarily indicate better quality because noise can also increase entropy.
 
-Entropy measures the information content of the image intensity distribution.
+### 8.3 Sharpness
 
-Higher entropy does not necessarily mean better image quality because noise can also increase entropy.
+Sharpness is estimated using the variance of the Laplacian. Higher values may reflect stronger edges but can also result from noise or excessive sharpening.
 
-### Sharpness
+### 8.4 Contrast Improvement Index
 
-Sharpness is estimated using the variance of the Laplacian.
+CII compares image contrast with that of the original image. The original image is assigned a CII of 1.00 by construction.
 
-Higher values can indicate stronger edges, but they can also result from noise amplification or artificial sharpening.
+### 8.5 Enhancement Measure Evaluation
 
-### Contrast Improvement Index
+EME measures local contrast characteristics across image blocks. A higher value alone does not guarantee anatomical preservation.
 
-CII measures contrast improvement relative to the original image. The original image has a CII of 1.00 by construction.
+### 8.6 Average Ranking
 
-### Enhancement Measure Evaluation
+Methods are ranked separately for each metric, respecting its preferred direction. The ranks are then aggregated.
 
-EME evaluates local contrast characteristics across image blocks.
+A lower average rank indicates better overall ranking across the selected metrics, not necessarily better clinical performance.
 
-A high EME value alone does not guarantee that anatomical structures are preserved.
+---
 
-### Average Rank
+## 9. Experimental Results
 
-Each method is ranked for each metric, respecting whether higher or lower values are preferred. The rankings are aggregated to obtain an average rank.
+### 9.1 Multi-Image Evaluation
 
-Lower average rank indicates better aggregate ranking under the selected metrics.
-
-## Experimental Results
-
-### Multi-Image Evaluation
-
-The following table reports the documented results for 23 selected low-quality images across eight methods.
+The following table reports the documented results for 23 selected images across eight methods.
 
 | Rank | Method | BRISQUE ↓ | Entropy ↑ | Sharpness ↑ | CII ↑ | EME ↑ | Average Rank |
 |---:|---|---:|---:|---:|---:|---:|---:|
@@ -417,22 +390,22 @@ The following table reports the documented results for 23 selected low-quality i
 | 5 | Original | 5.62 | 7.85 | 534.33 | 1.00 | 9.54 | 5.2 |
 | 6 | Zero-DCE | 19.59 | 6.54 | 1766.44 | 1.27 | **12.16** | 5.4 |
 | 7 | U-Net V3 | 17.96 | 7.86 | 1190.87 | 1.29 | 7.71 | 5.6 |
-| 8 | UniMIE | **-0.81** | 7.85 | 725.65 | 0.93 | 5.44 | 6.0 |
+| 8 | UniMIE | -0.81 | 7.85 | 725.65 | 0.93 | 5.44 | 6.0 |
 
-Retinexformer-Lite and its CLAHE hybrid were added after this multi-image run and were evaluated separately on a single image.
+Retinexformer-Lite and Retinexformer-Lite + CLAHE were evaluated separately in the documented single-image comparison.
 
-### Results Interpretation
+### 9.2 Key Findings
 
-- Attention U-Net + CLAHE achieved the best average rank of 2.2.
-- The proposed method achieved the highest mean entropy and CII.
-- CLAHE achieved the highest sharpness score, which may partly reflect stronger edges or noise amplification.
-- Zero-DCE achieved the highest EME but also the lowest entropy.
-- UniMIE achieved the lowest reported BRISQUE score, but its CII was below 1.0.
-- The original images outperformed several enhancement methods on BRISQUE, demonstrating that no single metric is sufficient to determine enhancement quality.
+- Attention U-Net + CLAHE achieved the best average rank of **2.2**.
+- The proposed method achieved the highest mean entropy and CII in this evaluation.
+- CLAHE achieved the highest sharpness value, but sharpness can increase through noise amplification.
+- Zero-DCE achieved the highest EME value but the lowest entropy.
+- UniMIE achieved the lowest BRISQUE value, while its CII was below 1.0.
+- No method performed best on every metric.
 
-### Single-Image Comparison
+### 9.3 Single-Image Comparison
 
-The notebook reports the following results for `view2_lateral.jpg`.
+The following results correspond to the documented image `view2_lateral.jpg`.
 
 | Rank | Method | BRISQUE ↓ | Entropy ↑ | Sharpness ↑ | CII ↑ | EME ↑ | Average Rank |
 |---:|---|---:|---:|---:|---:|---:|---:|
@@ -447,11 +420,21 @@ The notebook reports the following results for `view2_lateral.jpg`.
 | 9 | Original | 19.22 | 6.79 | 285.95 | 1.00 | 18.38 | 7.2 |
 | 10 | Retinexformer-Lite | 28.28 | 6.93 | 297.79 | 1.01 | 5.66 | 8.4 |
 
-The single-image results are illustrative and should not be treated as evidence of general performance.
+Single-image results are illustrative and cannot establish general superiority.
 
-### Statistical Analysis
+### 9.4 Edge Preservation
 
-The notebook compares Attention U-Net + CLAHE against U-Net V3 + CLAHE using a paired Wilcoxon signed-rank test over 23 image pairs.
+| Method | Fine-Edge Retention |
+|---|---:|
+| CLAHE | 98.6% |
+| Attention U-Net | 99.1% |
+| Attention U-Net + CLAHE | 98.9% |
+
+This assessment uses a single support-device image and a Canny edge comparison. It measures retained edges but does not fully capture newly introduced edges or semantic preservation.
+
+### 9.5 Statistical Comparison
+
+The notebook reports a paired Wilcoxon signed-rank test comparing Attention U-Net + CLAHE with U-Net V3 + CLAHE over 23 image pairs.
 
 | Metric | Reported p-value |
 |---|---:|
@@ -461,87 +444,75 @@ The notebook compares Attention U-Net + CLAHE against U-Net V3 + CLAHE using a p
 | CII | < 0.0001 |
 | EME | 0.0001 |
 
-These p-values are uncorrected for multiple comparisons and inherit the dataset-selection and potential leakage issues discussed below. They should not be interpreted as proof of clinical benefit.
+These values are uncorrected for multiple comparisons and are affected by the evaluation protocol. They should not be interpreted as evidence of clinical benefit.
 
-### Artifact Preservation
+---
 
-The project evaluates edge retention on one CheXpert image labelled with support devices.
+## 10. Limitations and Data Leakage Audit
 
-| Method | Fine-Edge Retention |
-|---|---:|
-| CLAHE | 98.6% |
-| Attention U-Net | 99.1% |
-| Attention U-Net + CLAHE | 98.9% |
+### 10.1 Potential Training-Evaluation Overlap
 
-This measurement estimates how many original edges remain detectable after enhancement. It does not penalize newly introduced edges and does not establish semantic preservation of every anatomical structure or medical device.
+| Model | Documented Status |
+|---|---|
+| U-Net V3 | 18 of 23 evaluation images overlap with its training pool |
+| Attention U-Net | Potential overlap with all 23 evaluation images |
+| Retinexformer-Lite | Notebook includes a leakage guard |
+| Zero-DCE | Image overlap has not been fully verified |
+| CLAHE | No training-related leakage |
+| UniMIE | Uses a pretrained diffusion model |
 
-## Discussion
+The Attention U-Net training pool and evaluation subset were generated through related sampling procedures using the same random seed. Consequently, evaluation images may have been included in training or validation.
 
-The recorded experiments suggest that combining neural restoration with CLAHE can improve the aggregate ranking of image-quality metrics.
+The overlap should be independently verified from the actual image-path lists. Patient-level separation is also required because different images from the same patient may appear in multiple subsets.
 
-Attention U-Net + CLAHE outperformed Attention U-Net alone and CLAHE alone in average rank on the selected subset. U-Net V3 + CLAHE also achieved a better average rank than U-Net V3 alone.
+### 10.2 Additional Limitations
 
-However, the results do not show that the proposed method is superior for every metric. CLAHE produced the highest sharpness, Zero-DCE produced the highest EME, and UniMIE produced the lowest reported BRISQUE value.
+- Small evaluation subset.
+- Selection of evaluation images using metrics later used for assessment.
+- No clinically ideal reference images.
+- Limited suitability of BRISQUE for medical radiographs.
+- Sharpness and entropy can increase because of noise.
+- Supervised models learn from CLAHE-generated targets.
+- Single-image artifact-preservation evaluation.
+- Uncorrected statistical comparisons.
+- Incomplete multi-image comparison of all ten configurations.
+- No established improvement in downstream disease-detection accuracy.
 
-The main findings are:
+### 10.3 Recommended Validation Protocol
 
-1. Hybrid enhancement can provide a useful balance between learned restoration and local contrast enhancement.
-2. Attention mechanisms may help feature selection and reconstruction, but controlled comparisons are needed.
-3. Image-quality metrics measure different properties and can disagree.
-4. Edge retention is a useful preliminary check but is not a complete measure of clinical information preservation.
-5. Evaluation leakage and subset selection must be addressed before drawing strong conclusions.
+```mermaid
+flowchart TD
+    A["CheXpert Dataset"] --> B["Patient-Level Split"]
+    B --> C["Training Set"]
+    B --> D["Validation Set"]
+    B --> E["Independent Test Set"]
 
-## Limitations and Data Leakage Audit
+    C --> F["Train Enhancement Models"]
+    D --> G["Model Selection"]
+    F --> G
 
-The reported experiments have several limitations that must be considered when interpreting their results.
+    G --> H["Freeze Model Checkpoints"]
+    H --> I["Evaluate on Test Set"]
+    E --> I
 
-### Evaluation Overlap
+    I --> J["Metric Comparison"]
+    J --> K["Statistical Analysis"]
+    K --> L["Downstream Detection Evaluation"]
+```
 
-| Model | Training Configuration | Reported Overlap Status |
-|---|---|---|
-| U-Net V3 | 1,900 training images and 100 validation images | 18 of 23 evaluation images overlap with the training pool |
-| Attention U-Net | 500-image pool, split into 400 training and 100 validation images | Potential overlap with all 23 evaluation images |
-| Retinexformer-Lite | 1,799 training and 200 validation images | Notebook reports a leakage guard |
-| Zero-DCE | 2,000 training images | Overlap not fully verified |
-| CLAHE | No model training | Not applicable |
-| UniMIE | Pretrained diffusion checkpoint | No project-specific training on the evaluation subset |
+A robust evaluation should:
 
-The Attention U-Net training pool and the evaluation subset were generated using related sampling procedures and the same random seed. This creates a substantial risk that the evaluation images were included in training or validation.
+1. Split data at the patient level before training.
+2. Exclude all test patients from training and validation.
+3. Select test images independently of evaluation metrics.
+4. Compare every method on the same fixed test set.
+5. Report uncertainty and correct for multiple statistical comparisons.
+6. Evaluate the impact of enhancement on downstream disease detection.
+7. Obtain expert assessment before making clinical claims.
 
-The Retinexformer-Lite notebook includes a leakage guard, but all model path lists should be independently checked before claiming that the entire evaluation is leakage-free.
+---
 
-### Selection Bias
-
-The 23 evaluation images were selected using BRISQUE and entropy thresholds, and these metrics were then used in the evaluation.
-
-This creates a selection bias because the evaluation set was chosen partly on the basis of the same quantities used to assess enhancement.
-
-### Other Limitations
-
-- The multi-image evaluation contains only 23 selected images.
-- The dataset includes frontal and lateral views.
-- No clinically ideal reference images are available for direct comparison.
-- BRISQUE may not reliably represent medical-image quality.
-- Higher sharpness and entropy may reflect noise or artifacts.
-- Supervised models learn from CLAHE-generated targets rather than verified ideal images.
-- The edge-preservation experiment uses a single support-device image.
-- Statistical comparisons are not corrected for multiple testing.
-- Retinexformer-Lite is absent from the eight-method multi-image comparison.
-- Downstream disease-detection performance and radiologist assessments have not been established.
-
-### Recommended Final Evaluation Protocol
-
-1. Define a fixed, independent test set before training the enhancement models.
-2. Split data at the patient level where patient identifiers are available.
-3. Exclude every test patient from training and validation.
-4. Check image-path and patient-level overlap for all learned models.
-5. Select evaluation images independently of the metrics used to compare methods.
-6. Evaluate all methods on the same fixed test set.
-7. Apply appropriate multiple-comparison corrections when conducting statistical tests.
-8. Investigate downstream disease-detection performance with and without enhancement.
-9. Obtain expert assessment before making claims about clinical usefulness.
-
-## Repository Structure
+## 11. Repository Structure
 
 ```text
 Image_enhancement/
@@ -570,55 +541,57 @@ Image_enhancement/
 |-- zerodce_xray.pt
 ```
 
-### Main Files
+### Key Files
 
-| File | Purpose |
+| File | Description |
 |---|---|
-| `final_image_enhacement_3000.ipynb` | Consolidated experiments and comparative evaluation |
-| `final-image-enhancement-with-attention.ipynb` | Attention U-Net and hybrid enhancement experiments |
-| `final-image-enhancement.ipynb` | Enhancement pipeline experiments |
-| `final_image_enhancement_23_images.ipynb` | Multi-image and texture-preservation evaluation |
+| `final_image_enhacement_3000.ipynb` | Consolidated enhancement and evaluation experiments |
+| `final-image-enhancement-with-attention.ipynb` | Attention-based enhancement experiments |
+| `final-image-enhancement.ipynb` | Image enhancement pipeline |
+| `final_image_enhancement_23_images.ipynb` | Multi-image comparison and artifact assessment |
 | `image_enhancement_stage_1.ipynb` | Initial enhancement workflow |
-| `image_enhancement_unimie.ipynb` | Diffusion-based enhancement experiments |
-| `unet_xray_v3.pt` | Saved U-Net V3 weights |
-| `zerodce_xray.pt` | Saved Zero-DCE weights |
-| `results/` | Saved evaluation outputs, plots, and model assets |
+| `image_enhancement_unimie.ipynb` | Diffusion-based enhancement |
+| `unet_xray_v3.pt` | U-Net V3 model checkpoint |
+| `zerodce_xray.pt` | Zero-DCE model checkpoint |
+| `results/` | Saved evaluation outputs and model assets |
 
-Some files may exist both in the project root and inside `results/`. Update this listing if the repository structure changes.
+The tree reflects the documented repository layout. File names should be updated if the repository changes.
 
-## Installation
+---
 
-### Prerequisites
+## 12. Installation
 
-- Python 3.10 or a compatible Python version.
-- Access to the CheXpert dataset under its usage terms.
+### 12.1 Prerequisites
+
+- Python 3.10 or a compatible version.
+- Access to the CheXpert dataset.
 - Jupyter Notebook or Kaggle Notebooks.
-- A CUDA-capable GPU is recommended for training and diffusion experiments.
+- CUDA-capable GPU recommended for training and diffusion inference.
 
-### 1. Clone the Repository
+### 12.2 Clone the Repository
 
 ```bash
 git clone https://github.com/SuryaSampreeth/VLIL-Team-95.git
 cd VLIL-Team-95/Image_enhancement
 ```
 
-### 2. Create a Virtual Environment
+### 12.3 Create a Virtual Environment
 
-**Windows PowerShell:**
+**Windows PowerShell**
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-**Linux / macOS:**
+**Linux / macOS**
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install Core Dependencies
+### 12.4 Install Dependencies
 
 ```bash
 python -m pip install --upgrade pip
@@ -626,100 +599,99 @@ python -m pip install --upgrade pip
 python -m pip install numpy pandas scipy scikit-image scikit-learn matplotlib seaborn opencv-python-headless Pillow tqdm brisque piq jupyter
 ```
 
-Install PyTorch and Torchvision using the official installation selector:
+Install PyTorch and Torchvision using the official installation guide:
 
 https://pytorch.org/get-started/locally/
 
-### 4. Optional UniMIE Dependencies
+The UniMIE experiments may require additional guided-diffusion dependencies and a separately obtained pretrained checkpoint.
 
-The diffusion experiments may require the guided-diffusion implementation and its checkpoint.
+The repository does not include a verified, fully pinned dependency lockfile. Package versions may need adjustment to match the Python, PyTorch, and CUDA environment.
 
-```bash
-pip install git+https://github.com/openai/guided-diffusion.git
+### 12.5 Configure Dataset Path
 
-git clone https://github.com/Fayeben/UniMIE.git
-```
+Update `BASE_PATH` in the notebook to point to the CheXpert dataset.
 
-The documented experiment uses a pretrained 256 × 256 diffusion checkpoint of approximately 2 GB.
+Ensure that the paths in the metadata resolve correctly within the selected dataset directory.
 
-Follow the checkpoint's official distribution and access instructions rather than assuming that it is included in this repository.
+---
 
-### 5. Configure the Dataset
+## 13. Execution
 
-Update `BASE_PATH` in the notebook to the correct CheXpert dataset directory.
+1. Clone the repository.
+2. Install the required dependencies.
+3. Open `final_image_enhacement_3000.ipynb` in Kaggle or Jupyter Notebook.
+4. Attach the CheXpert dataset and configure `BASE_PATH`.
+5. Run setup and preprocessing cells.
+6. Execute the enhancement methods and load checkpoints where applicable.
+7. Run the evaluation cells to calculate image-quality metrics.
+8. Review the comparative rankings and data-leakage checks.
 
-The notebook resolves image paths from the metadata, so the dataset directory structure must match the expected paths.
+Execute notebook cells in sequence because later stages may depend on variables, functions, and models defined earlier.
 
-**Note:** The repository does not include a verified, fully pinned dependency lockfile. Package versions may need adjustment for the selected Python, PyTorch, and CUDA versions.
+The documented multi-image comparison takes approximately 15 minutes on a Tesla T4 GPU, largely because of UniMIE inference. Actual runtime varies with the environment.
 
-## Execution
+---
 
-1. Clone the repository and install the required dependencies.
-2. Open `final_image_enhacement_3000.ipynb` in Kaggle or Jupyter Notebook.
-3. Attach the CheXpert dataset and configure `BASE_PATH`.
-4. Run the setup and dataset-loading cells.
-5. Execute the quality-assessment and enhancement cells in order.
-6. Load saved model checkpoints where available to avoid unnecessary retraining.
-7. Run the comparative evaluation cells to calculate metrics and generate result tables.
-8. Review the statistical results and leakage checks before interpreting model performance.
+## 14. Reproducibility
 
-Some experiments depend on variables, functions, and models created in earlier cells. Execute the notebook in sequence.
-
-The documented 23-image comparison takes approximately 15 minutes on a Tesla T4 GPU, largely due to UniMIE inference. Actual execution time depends on the environment and configuration.
-
-## Reproducibility
-
-| Setting | Documented Value |
+| Configuration | Documented Value |
 |---|---|
 | Training seed | 42 |
 | Evaluation seed | 123 |
 | Sampling seed | 42 |
-| Input resolution | 256 × 256 |
+| Image resolution | 256 × 256 |
 | Batch size | 8 for supervised models |
-| Hardware | Tesla T4, approximately 15.6 GB |
+| GPU | Tesla T4, approximately 15.6 GB |
 | PyTorch | 2.10.0+cu128 |
 | NumPy | 2.4.6 |
 
-Random seeds improve repeatability but do not guarantee identical results across hardware and library versions.
+For reproducible experiments, record the dataset version, patient split, checkpoint, model configuration, package versions, and evaluation protocol.
 
-For reproducible experiments, record the dataset version, patient split, checkpoint, model configuration, package versions, evaluation subset, and metric implementation.
+Random seeds improve repeatability but do not guarantee identical outputs across different hardware and library versions.
 
-## Future Work
+---
 
-- Re-evaluate all learned models on a fixed, leakage-free test set.
-- Investigate patient-level separation across training, validation, and testing.
-- Measure the impact of enhancement on downstream disease-detection performance.
-- Conduct expert review of enhanced radiographs.
-- Evaluate frontal and lateral radiographs separately.
-- Investigate medical-domain quality metrics alongside BRISQUE.
-- Improve support-device and anatomical-structure preservation assessment.
-- Replace fixed quality-screening thresholds with validated quality-estimation methods.
-- Add pinned dependencies and experiment tracking.
-- Integrate the enhancement module into the complete ReXTrust pipeline and assess its effect on downstream results.
+## 15. Future Work
 
-## Responsible Use
+- Re-evaluate all learned models using a fixed, patient-level, leakage-free test set.
+- Expand evaluation across frontal and lateral radiographs.
+- Investigate the effect of enhancement on downstream disease-detection performance.
+- Conduct expert assessment of image quality and structural preservation.
+- Investigate medical-domain image-quality metrics.
+- Improve automated quality assessment beyond fixed thresholds.
+- Evaluate robustness across acquisition settings and patient populations.
+- Integrate the enhancement module into the complete ReXTrust pipeline.
+- Add pinned dependencies and experiment tracking for reproducible research.
+
+---
+
+## 16. Responsible Use
 
 This project is intended for **research and educational purposes only**.
 
-Enhanced images may contain artifacts or altered details. They must not replace the original radiograph or professional clinical interpretation.
+Enhanced images may contain artifacts or altered details. They must not replace original radiographs or professional clinical interpretation.
 
-The experiments do not establish clinical safety, diagnostic accuracy, or regulatory approval. Any clinical application would require independent validation, appropriate clinical oversight, and compliance with applicable regulations.
+The reported experiments do not establish clinical safety, diagnostic accuracy, or regulatory approval. Any clinical application requires independent validation, appropriate clinical oversight, and compliance with applicable regulations.
 
-Use the CheXpert dataset according to its access and usage terms. Do not commit patient-identifying data, credentials, or access tokens to the repository.
+Use the CheXpert dataset in accordance with its access and usage terms. Do not commit patient-identifying information, credentials, or access tokens to the repository.
 
-## Team and Acknowledgements
+---
+
+## 17. Team and Acknowledgements
 
 **Team:** VLIL Team 95  
 **Institution:** Amrita Vishwa Vidyapeetham, Department of Computer Science and Engineering
 
-The project builds on the CheXpert dataset and open-source research in image enhancement, convolutional neural networks, attention mechanisms, and diffusion models.
+This project builds on research in medical-image processing, convolutional neural networks, attention mechanisms, diffusion models, and image-quality assessment.
 
-We acknowledge the researchers and developers behind PyTorch, OpenCV, scikit-image, PIQ, guided-diffusion, and the methods discussed in this repository.
+We acknowledge the CheXpert dataset contributors and the open-source communities behind PyTorch, OpenCV, scikit-image, PIQ, and guided-diffusion.
 
-## References
+---
+
+## 18. References
 
 1. Irvin, J. et al. "CheXpert: A Large Chest Radiograph Dataset with Uncertainty Labels and Expert Comparison." AAAI, 2019.
-2. Zuiderveld, K. "Contrast Limited Adaptive Histogram Equalization." Graphics Gems IV, 1994.
+2. Zuiderveld, K. "Contrast Limited Adaptive Histogram Equalization." *Graphics Gems IV*, 1994.
 3. Guo, C. et al. "Zero-Reference Deep Curve Estimation for Low-Light Image Enhancement." CVPR, 2020.
 4. Ronneberger, O., Fischer, P., and Brox, T. "U-Net: Convolutional Networks for Biomedical Image Segmentation." MICCAI, 2015.
 5. Oktay, O. et al. "Attention U-Net: Learning Where to Look for the Pancreas." MIDL, 2018.
@@ -735,7 +707,6 @@ We acknowledge the researchers and developers behind PyTorch, OpenCV, scikit-ima
 
 ---
 
-**ReXTrust — Chest X-ray Image Enhancement Module**
+**ReXTrust | Chest X-ray Image Enhancement**
 
-*Research and educational use only. Update this README whenever the implementation, checkpoints, evaluation protocol, or reported results change.*
-
+*Research and educational use only.*
